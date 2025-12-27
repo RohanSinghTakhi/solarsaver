@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { Toaster } from 'sonner';
 
@@ -19,6 +19,15 @@ import CheckoutPage from './pages/CheckoutPage';
 import WishlistPage from './pages/WishlistPage';
 import ComparePage from './pages/ComparePage';
 import BlogPage from './pages/BlogPage';
+import VendorProducts from './pages/VendorProducts';
+import VendorOrders from './pages/VendorOrders';
+import VendorProfile from './pages/VendorProfile';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminUsers from './pages/AdminUsers';
+import AdminVendors from './pages/AdminVendors';
+import AdminProducts from './pages/AdminProducts';
+import AdminOrders from './pages/AdminOrders';
+import AdminSettings from './pages/AdminSettings';
 
 // Components
 import Header from './components/Header';
@@ -300,7 +309,7 @@ function App() {
       <CartProvider>
         <WishlistProvider>
           <CompareProvider>
-            <BrowserRouter>
+            <HashRouter>
               <Toaster position="top-right" richColors />
               <Routes>
                 <Route path="/" element={<Layout><HomePage /></Layout>} />
@@ -328,11 +337,56 @@ function App() {
                 } />
                 <Route path="/vendor/dashboard" element={
                   <ProtectedRoute allowedRoles={['vendor', 'admin']}>
-                    <Layout><VendorDashboard /></Layout>
+                    <VendorDashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="/vendor/products" element={
+                  <ProtectedRoute allowedRoles={['vendor', 'admin']}>
+                    <VendorProducts />
+                  </ProtectedRoute>
+                } />
+                <Route path="/vendor/orders" element={
+                  <ProtectedRoute allowedRoles={['vendor', 'admin']}>
+                    <VendorOrders />
+                  </ProtectedRoute>
+                } />
+                <Route path="/vendor/profile" element={
+                  <ProtectedRoute allowedRoles={['vendor', 'admin']}>
+                    <VendorProfile />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/dashboard" element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/users" element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminUsers />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/vendors" element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminVendors />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/products" element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminProducts />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/orders" element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminOrders />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/settings" element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminSettings />
                   </ProtectedRoute>
                 } />
               </Routes>
-            </BrowserRouter>
+            </HashRouter>
           </CompareProvider>
         </WishlistProvider>
       </CartProvider>
