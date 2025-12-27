@@ -1,34 +1,265 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/* App.css - Additional styles */
+.App {
+  min-height: 100vh;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+/* Hero Section Specific */
+.hero-content {
+  position: relative;
+  z-index: 10;
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+/* Product Grid */
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 1.5rem;
 }
 
-.App-link {
-    color: #61dafb;
+@media (min-width: 640px) {
+  .product-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+@media (min-width: 1024px) {
+  .product-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Tetris Grid for Hero */
+.tetris-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .tetris-grid {
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: repeat(2, minmax(200px, 1fr));
+  }
+  
+  .tetris-main {
+    grid-column: span 8;
+    grid-row: span 2;
+  }
+  
+  .tetris-side-1 {
+    grid-column: span 4;
+    grid-row: span 1;
+  }
+  
+  .tetris-side-2 {
+    grid-column: span 4;
+    grid-row: span 1;
+  }
+}
+
+/* Chat Window */
+.chat-window {
+  max-height: 500px;
+}
+
+.chat-messages {
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+/* Filter Sidebar */
+.filter-sidebar {
+  position: sticky;
+  top: 100px;
+}
+
+/* Checkout Steps */
+.checkout-step {
+  position: relative;
+}
+
+.checkout-step::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  width: 100%;
+  height: 2px;
+  background: hsl(var(--border));
+}
+
+.checkout-step:last-child::after {
+  display: none;
+}
+
+.checkout-step.active::after {
+  background: hsl(var(--primary));
+}
+
+/* Image Zoom Effect */
+.image-zoom-container {
+  overflow: hidden;
+}
+
+.image-zoom-container img {
+  transition: transform 0.5s ease;
+}
+
+.image-zoom-container:hover img {
+  transform: scale(1.1);
+}
+
+/* Rating Stars */
+.rating-stars {
+  display: flex;
+  gap: 2px;
+}
+
+/* Quantity Selector */
+.quantity-selector {
+  display: flex;
+  align-items: center;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.quantity-btn {
+  padding: 0.5rem 1rem;
+  background: hsl(var(--secondary));
+  transition: background-color 0.2s;
+}
+
+.quantity-btn:hover {
+  background: hsl(var(--secondary) / 0.8);
+}
+
+.quantity-value {
+  padding: 0.5rem 1rem;
+  min-width: 50px;
+  text-align: center;
+  font-weight: 600;
+}
+
+/* Modal Backdrop */
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+/* Tab Active State */
+.tab-active {
+  position: relative;
+}
+
+.tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: hsl(var(--primary));
+}
+
+/* Benefits Icons */
+.benefit-icon {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.1), hsl(var(--primary) / 0.05));
+  color: hsl(var(--primary));
+}
+
+/* Trust Badge */
+.trust-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: hsl(var(--secondary));
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Vendor Badge */
+.vendor-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.empty-state-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: hsl(var(--secondary));
+  color: hsl(var(--muted-foreground));
+}
+
+/* Dashboard Stat Card */
+.stat-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 1rem;
+  padding: 1.5rem;
+}
+
+.stat-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 2rem;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+  margin-top: 0.25rem;
+}
+
+/* Form Group */
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: hsl(var(--foreground));
+}
+
+/* Breadcrumb */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.breadcrumb-separator {
+  color: hsl(var(--border));
+}
+
+.breadcrumb-current {
+  color: hsl(var(--foreground));
+  font-weight: 500;
 }
