@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/solarsaver/static/css/main.c81380b4.css",
-    "main.js": "/solarsaver/static/js/main.479b4b02.js",
+    "main.js": "/solarsaver/static/js/main.845d2f6c.js",
     "index.html": "/solarsaver/index.html",
     "main.c81380b4.css.map": "/solarsaver/static/css/main.c81380b4.css.map",
-    "main.479b4b02.js.map": "/solarsaver/static/js/main.479b4b02.js.map"
+    "main.845d2f6c.js.map": "/solarsaver/static/js/main.845d2f6c.js.map"
   },
   "entrypoints": [
     "static/css/main.c81380b4.css",
-    "static/js/main.479b4b02.js"
+    "static/js/main.845d2f6c.js"
   ]
 }
