@@ -1,0 +1,158 @@
+{
+  "typography": {
+    "headings": {
+      "font_family": "Outfit, sans-serif",
+      "weights": ["400", "600", "800"],
+      "usage": "All section titles, hero text, and product names. Use weight 800 for Hero, 600 for Section Headers.",
+      "letter_spacing": "tracking-tight"
+    },
+    "body": {
+      "font_family": "DM Sans, sans-serif",
+      "weights": ["400", "500", "700"],
+      "usage": "Paragraphs, UI labels, inputs, and descriptions.",
+      "line_height": "leading-relaxed"
+    },
+    "mono": {
+      "font_family": "JetBrains Mono, monospace",
+      "usage": "Data metrics, pricing numbers, and technical specs."
+    }
+  },
+  "colors": {
+    "palette": {
+      "solar_gold": "#FFB020",
+      "photovoltaic_blue": "#0F172A",
+      "tech_green": "#00C16A",
+      "warm_stone": "#FAFAF9",
+      "deep_slate": "#020617",
+      "white": "#FFFFFF",
+      "alert_red": "#EF4444"
+    },
+    "light_mode": {
+      "background": "#FAFAF9",
+      "foreground": "#0F172A",
+      "primary": "#FFB020",
+      "primary_foreground": "#0F172A",
+      "secondary": "#E2E8F0",
+      "secondary_foreground": "#0F172A",
+      "accent": "#00C16A",
+      "accent_foreground": "#FFFFFF",
+      "card": "#FFFFFF",
+      "card_foreground": "#0F172A",
+      "border": "#E2E8F0",
+      "input": "#F1F5F9"
+    },
+    "dark_mode": {
+      "background": "#020617",
+      "foreground": "#F8FAFC",
+      "primary": "#FFB020",
+      "primary_foreground": "#020617",
+      "secondary": "#1E293B",
+      "secondary_foreground": "#F8FAFC",
+      "accent": "#00C16A",
+      "accent_foreground": "#FFFFFF",
+      "card": "#0F172A",
+      "card_foreground": "#F8FAFC",
+      "border": "#1E293B",
+      "input": "#1E293B"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": {
+      "light": "bg-white/70 backdrop-blur-xl border border-white/40 shadow-sm",
+      "dark": "bg-black/60 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+    },
+    "borders": {
+      "default": "border border-border",
+      "active": "border-primary/50",
+      "glow": "ring-2 ring-primary/20"
+    },
+    "shadows": {
+      "card": "shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-shadow duration-300",
+      "floating": "shadow-[0_12px_40px_rgba(0,0,0,0.12)]"
+    },
+    "radius": {
+      "default": "rounded-xl",
+      "button": "rounded-full",
+      "card": "rounded-2xl"
+    }
+  },
+  "grids": {
+    "hero_tetris": "grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 p-4 md:p-8",
+    "product_grid": "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6",
+    "dashboard_control": "grid grid-cols-1 md:grid-cols-4 gap-6"
+  },
+  "components": {
+    "hero_section": {
+      "instruction": "Use the 'Tetris' grid. Main block (col-span-8) features the 'Modern Home' image with a glassmorphism overlay for text. Side blocks feature 'Solar Calculator' teaser and 'Deal of the Day'.",
+      "style": "Immersive, high contrast, text over image with proper scrim."
+    },
+    "solar_calculator": {
+      "instruction": "A standalone card or section. NOT a modal. Use a multi-step form wizard feel. Inputs for 'Monthly Bill', 'Roof Type', 'Location'. Output: 'Potential Savings' in big bold Mono font.",
+      "style": "Clean, functional, high-trust. Use 'tech_green' for savings numbers."
+    },
+    "product_card": {
+      "instruction": "Minimalist. Image top, Title, Price, and 'Add to Cart' button that appears on hover. Show 'Efficiency Rating' badge.",
+      "style": "White bg (light mode), Slate bg (dark mode). Subtle border. No heavy shadows until hover."
+    },
+    "ai_assistant": {
+      "instruction": "Floating button bottom-right. Expands into a chat window. Use 'Solar Gold' for the trigger button. Chat window should use glassmorphism.",
+      "style": "Friendly, accessible, distinct from the rest of the UI."
+    }
+  },
+  "motion": {
+    "page_transition": "initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}",
+    "hover_lift": "hover:-translate-y-1 hover:shadow-lg transition-all duration-300",
+    "scroll_reveal": "Use 'framer-motion' whileInView={{ opacity: 1, y: 0 }} initial={{ opacity: 0, y: 30 }} viewport={{ once: true }}",
+    "marquee": "Slow, continuous scroll for brand logos or 'Why Choose Us' benefits."
+  },
+  "image_urls": {
+    "hero_home": {
+      "url": "https://images.unsplash.com/photo-1720610784599-18c02b1cc9ee",
+      "alt": "Modern home with solar panels on roof",
+      "category": "Hero"
+    },
+    "commercial_hero": {
+      "url": "https://images.unsplash.com/photo-1745187794292-ba0014281746",
+      "alt": "Factory roof with solar installation",
+      "category": "Commercial Section"
+    },
+    "technician": {
+      "url": "https://images.unsplash.com/photo-1681049400158-0ff6249ac315",
+      "alt": "Solar technicians installing panels",
+      "category": "About/Services"
+    },
+    "inverter_battery": {
+      "url": "https://images.pexels.com/photos/33751638/pexels-photo-33751638.jpeg",
+      "alt": "Solar inverter and battery system",
+      "category": "Products"
+    },
+    "happy_family": {
+      "url": "https://images.unsplash.com/photo-1591710369924-0dcd50436306",
+      "alt": "Family home exterior",
+      "category": "Testimonials"
+    }
+  },
+  "instructions_to_main_agent": [
+    "1. SETUP: Install 'lucide-react', 'framer-motion', 'clsx', 'tailwind-merge', 'sonner'. Configure Tailwind with the provided colors and fonts.",
+    "2. FONTS: Import 'Outfit', 'DM Sans', and 'JetBrains Mono' from Google Fonts in index.css.",
+    "3. LAYOUT: Build the 'Tetris' grid for the Home Page Hero. It's the signature look.",
+    "4. COMPONENTS: Create reusable 'Button', 'Card', 'Input' components using the 'visual_enhancers' styles. Do not use default HTML elements.",
+    "5. CALCULATOR: Implement the Solar Calculator logic (mocked is fine) but ensure the UI is top-tier (sliders, toggle switches, clear big numbers).",
+    "6. AI CHAT: Add the floating AI assistant. It should be present on all pages.",
+    "7. THEME: Implement the Dark/Light mode toggle. Default to Light Mode.",
+    "8. DATA-TESTID: Add 'data-testid' to all interactive elements (buttons, inputs, links) for testing."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Avoid generic 'AI slop' designs. Use the specified 'Tetris' and 'Control Room' grids.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur).",
+    "You MUST NOT apply universal transition. Eg: 'transition: all'. This results in breaking transforms.",
+    "You MUST NOT center align the app container.",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations.",
+    "NEVER use AI assistant Emoji characters for icons. Use Lucide React icons.",
+    "Every interaction needs micro-animations - hover states, transitions.",
+    "Use 2-3x more spacing than feels comfortable.",
+    "Use 'sonner' for toasts."
+  ]
+}
