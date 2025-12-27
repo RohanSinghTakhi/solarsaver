@@ -12,7 +12,14 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import jwt
 import bcrypt
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+# Optional LLM import - fallback if not available
+LLM_AVAILABLE = False
+try:
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    LLM_AVAILABLE = True
+except ImportError:
+    logging.warning("emergentintegrations not installed - AI chat will use fallback responses")
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -572,32 +579,72 @@ For recommendations, you can suggest they use our Solar Calculator or browse our
 async def chat_with_assistant(chat_input: ChatMessage):
     session_id = chat_input.session_id or str(uuid.uuid4())
     
-    try:
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=session_id,
-            system_message=SOLAR_SYSTEM_PROMPT
-        )
-        chat.with_model("openai", "gpt-5.2")
-        
-        user_message = UserMessage(text=chat_input.message)
-        response = await chat.send_message(user_message)
-        
-        # Store chat history
-        await db.chat_history.insert_one({
-            "session_id": session_id,
-            "user_message": chat_input.message,
-            "assistant_response": response,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        })
-        
-        return ChatResponse(response=response, session_id=session_id)
-    except Exception as e:
-        logging.error(f"Chat error: {e}")
-        return ChatResponse(
-            response="I apologize, but I'm having trouble connecting right now. Please try again or use our Solar Calculator for instant recommendations!",
-            session_id=session_id
-        )
+    # Fallback responses for common questions
+    fallback_responses = {
+        "price": "Our solar systems range from ₹5,999 for a 3kW home system to ₹2,75,000 for industrial 250kW installations. Use our Solar Calculator for a personalized estimate!",
+        "size": "The right system size depends on your electricity bill. A typical home uses 3-10kW, while commercial properties need 25-250kW. Try our Solar Calculator!",
+        "warranty": "All our solar systems come with 25-30 year warranties. Premium brands like SunPower and LG offer extended performance guarantees.",
+        "install": "Installation typically takes 1-3 days for homes and 1-2 weeks for commercial projects. Our vendors handle permits and grid connection.",
+        "save": "On average, solar can reduce your electricity bills by 70-90%. Your exact savings depend on your consumption and system size.",
+        "default": "Thanks for your question! I'm your SolarSavers assistant. For personalized recommendations, try our Solar Calculator or browse our products. How can I help you with solar energy today?"
+    }
+    
+    # Generate response
+    message_lower = chat_input.message.lower()
+    response = fallback_responses["default"]
+    
+    if LLM_AVAILABLE and EMERGENT_LLM_KEY:
+        try:
+            chat = LlmChat(
+                api_key=EMERGENT_LLM_KEY,
+                session_id=session_id,
+                system_message=SOLAR_SYSTEM_PROMPT
+            )
+            chat.with_model("openai", "gpt-4")
+            
+            user_message = UserMessage(text=chat_input.message)
+            response = await chat.send_message(user_message)
+        except Exception as e:
+            logging.error(f"LLM Chat error: {e}")
+            # Fall through to keyword-based response
+            for key in ["price", "cost", "size", "kw", "warranty", "install", "save", "bill"]:
+                if key in message_lower:
+                    if key in ["price", "cost"]:
+                        response = fallback_responses["price"]
+                    elif key in ["size", "kw"]:
+                        response = fallback_responses["size"]
+                    elif key == "warranty":
+                        response = fallback_responses["warranty"]
+                    elif key == "install":
+                        response = fallback_responses["install"]
+                    elif key in ["save", "bill"]:
+                        response = fallback_responses["save"]
+                    break
+    else:
+        # Keyword-based fallback
+        for key in ["price", "cost", "size", "kw", "warranty", "install", "save", "bill"]:
+            if key in message_lower:
+                if key in ["price", "cost"]:
+                    response = fallback_responses["price"]
+                elif key in ["size", "kw"]:
+                    response = fallback_responses["size"]
+                elif key == "warranty":
+                    response = fallback_responses["warranty"]
+                elif key == "install":
+                    response = fallback_responses["install"]
+                elif key in ["save", "bill"]:
+                    response = fallback_responses["save"]
+                break
+    
+    # Store chat history
+    await db.chat_history.insert_one({
+        "session_id": session_id,
+        "user_message": chat_input.message,
+        "assistant_response": response,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return ChatResponse(response=response, session_id=session_id)
 
 # ============== CONTACT ==============
 

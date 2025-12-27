@@ -1,0 +1,328 @@
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Mail, Phone, MapPin, Send, Clock, MessageSquare, Ticket, Plus, AlertCircle, CheckCircle, Clock as ClockIcon, ChevronDown, User } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
+import { Badge } from '../components/ui/badge';
+import axios from 'axios';
+import { API, useAuth } from '../App';
+import { toast } from 'sonner';
+
+const ContactPage = () => {
+    const { user } = useAuth();
+    const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '' });
+    const [loading, setLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState('contact'); // 'contact' or 'tickets'
+
+    // Ticket form state
+    const [ticketForm, setTicketForm] = useState({
+        subject: '',
+        category: 'General Inquiry',
+        priority: 'Medium',
+        description: ''
+    });
+    const [ticketLoading, setTicketLoading] = useState(false);
+
+    // Demo tickets for display
+    const [tickets, setTickets] = useState([
+        { id: 'TKT-001', subject: 'Solar panel installation query', category: 'Installation', priority: 'High', status: 'Open', date: '2024-12-25', lastUpdate: '2 hours ago' },
+        { id: 'TKT-002', subject: 'Warranty claim for inverter', category: 'Warranty', priority: 'Medium', status: 'In Progress', date: '2024-12-20', lastUpdate: '1 day ago' },
+        { id: 'TKT-003', subject: 'Billing inquiry', category: 'Billing', priority: 'Low', status: 'Resolved', date: '2024-12-15', lastUpdate: '5 days ago' }
+    ]);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!form.name || !form.email || !form.message) { toast.error('Please fill required fields'); return; }
+        setLoading(true);
+        try {
+            await axios.post(`${API}/contact`, form);
+            toast.success('Message sent successfully!');
+            setForm({ name: '', email: '', phone: '', subject: '', message: '' });
+        } catch (error) { toast.error('Failed to send message'); }
+        finally { setLoading(false); }
+    };
+
+    const handleTicketSubmit = async (e) => {
+        e.preventDefault();
+        if (!ticketForm.subject || !ticketForm.description) {
+            toast.error('Please fill in subject and description');
+            return;
+        }
+        setTicketLoading(true);
+
+        // Simulate ticket creation
+        setTimeout(() => {
+            const newTicket = {
+                id: `TKT-${String(tickets.length + 1).padStart(3, '0')}`,
+                subject: ticketForm.subject,
+                category: ticketForm.category,
+                priority: ticketForm.priority,
+                status: 'Open',
+                date: new Date().toISOString().split('T')[0],
+                lastUpdate: 'Just now'
+            };
+            setTickets([newTicket, ...tickets]);
+            toast.success('Support ticket created successfully!');
+            setTicketForm({ subject: '', category: 'General Inquiry', priority: 'Medium', description: '' });
+            setTicketLoading(false);
+        }, 1000);
+    };
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'Open': return 'bg-blue-500';
+            case 'In Progress': return 'bg-yellow-500';
+            case 'Resolved': return 'bg-green-500';
+            default: return 'bg-gray-500';
+        }
+    };
+
+    const getPriorityColor = (priority) => {
+        switch (priority) {
+            case 'High': return 'text-red-500 bg-red-50 border-red-200';
+            case 'Medium': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+            case 'Low': return 'text-green-600 bg-green-50 border-green-200';
+            default: return '';
+        }
+    };
+
+    const contactInfo = [
+        { icon: MapPin, title: 'Address', content: '123 Solar Street, Green City, GC 12345' },
+        { icon: Phone, title: 'Phone', content: '+1 (234) 567-890' },
+        { icon: Mail, title: 'Email', content: 'info@solarsavers.com' },
+        { icon: Clock, title: 'Hours', content: 'Mon-Sat: 9AM - 6PM' }
+    ];
+
+    const ticketCategories = ['General Inquiry', 'Installation', 'Technical Support', 'Billing', 'Warranty', 'Returns'];
+    const priorities = ['Low', 'Medium', 'High'];
+
+    return (
+        <div className="min-h-screen pt-20">
+            <section className="relative h-64 bg-gradient-to-r from-foreground to-foreground/90 flex items-center">
+                <div className="container-solar relative z-10 text-white text-center">
+                    <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-3xl md:text-4xl font-bold">Contact Us</motion.h1>
+                    <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-white/80 mt-2">Get in touch with our solar experts</motion.p>
+                </div>
+            </section>
+
+            <div className="container-solar py-12 md:py-16">
+                {/* Tab Navigation for logged-in users */}
+                {user && (
+                    <div className="flex gap-4 mb-8 border-b">
+                        <button
+                            onClick={() => setActiveTab('contact')}
+                            className={`pb-4 px-2 font-medium transition-colors relative ${activeTab === 'contact'
+                                    ? 'text-primary'
+                                    : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            <MessageSquare className="w-4 h-4 inline mr-2" />
+                            Contact Form
+                            {activeTab === 'contact' && (
+                                <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                            )}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('tickets')}
+                            className={`pb-4 px-2 font-medium transition-colors relative ${activeTab === 'tickets'
+                                    ? 'text-primary'
+                                    : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            <Ticket className="w-4 h-4 inline mr-2" />
+                            Support Tickets
+                            <Badge className="ml-2 bg-primary/10 text-primary text-xs">{tickets.length}</Badge>
+                            {activeTab === 'tickets' && (
+                                <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                            )}
+                        </button>
+                    </div>
+                )}
+
+                {/* Contact Form Tab */}
+                {activeTab === 'contact' && (
+                    <div className="grid lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-2">
+                            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border p-6 md:p-8">
+                                <h2 className="text-xl font-bold mb-6 flex items-center gap-2"><MessageSquare className="w-5 h-5 text-primary" />Send us a Message</h2>
+                                <form onSubmit={handleSubmit} className="space-y-6">
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        <div className="space-y-2"><Label htmlFor="name">Name *</Label><Input id="name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="input-solar" /></div>
+                                        <div className="space-y-2"><Label htmlFor="email">Email *</Label><Input id="email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="input-solar" /></div>
+                                    </div>
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        <div className="space-y-2"><Label htmlFor="phone">Phone</Label><Input id="phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="input-solar" /></div>
+                                        <div className="space-y-2"><Label htmlFor="subject">Subject</Label><Input id="subject" value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} className="input-solar" /></div>
+                                    </div>
+                                    <div className="space-y-2"><Label htmlFor="message">Message *</Label><Textarea id="message" rows={5} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} /></div>
+                                    <Button type="submit" disabled={loading} className="btn-primary"><Send className="w-4 h-4 mr-2" />{loading ? 'Sending...' : 'Send Message'}</Button>
+                                </form>
+                            </motion.div>
+                        </div>
+
+                        <div className="space-y-6">
+                            {contactInfo.map((info, i) => (
+                                <motion.div key={i} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }} className="bg-card rounded-xl border p-4 flex items-start gap-4">
+                                    <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center shrink-0"><info.icon className="w-5 h-5 text-primary" /></div>
+                                    <div><p className="font-semibold">{info.title}</p><p className="text-sm text-muted-foreground">{info.content}</p></div>
+                                </motion.div>
+                            ))}
+
+                            {!user && (
+                                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }} className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+                                    <Ticket className="w-8 h-8 text-blue-500 mb-3" />
+                                    <h3 className="font-semibold mb-2">Need a Support Ticket?</h3>
+                                    <p className="text-sm text-muted-foreground mb-4">Login to create and track support tickets for faster resolution.</p>
+                                    <Link to="/login">
+                                        <Button variant="outline" className="w-full border-blue-300 text-blue-600 hover:bg-blue-100">
+                                            Login to Create Tickets
+                                        </Button>
+                                    </Link>
+                                </motion.div>
+                            )}
+
+                            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }} className="bg-primary/10 rounded-xl p-6">
+                                <h3 className="font-semibold mb-2">Need Quick Help?</h3>
+                                <p className="text-sm text-muted-foreground mb-4">Our AI assistant can help answer common questions instantly.</p>
+                                <Button variant="outline" className="w-full">Chat with AI Assistant</Button>
+                            </motion.div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Support Tickets Tab - Only for logged-in users */}
+                {activeTab === 'tickets' && user && (
+                    <div className="space-y-8">
+                        {/* Create New Ticket Form */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-card rounded-2xl border p-6 md:p-8"
+                        >
+                            <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                                <Plus className="w-5 h-5 text-primary" />
+                                Create New Support Ticket
+                            </h2>
+                            <form onSubmit={handleTicketSubmit} className="space-y-6">
+                                <div className="grid md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="ticket-subject">Subject *</Label>
+                                        <Input
+                                            id="ticket-subject"
+                                            placeholder="Brief description of your issue"
+                                            value={ticketForm.subject}
+                                            onChange={e => setTicketForm({ ...ticketForm, subject: e.target.value })}
+                                            className="input-solar"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="ticket-category">Category</Label>
+                                        <select
+                                            id="ticket-category"
+                                            value={ticketForm.category}
+                                            onChange={e => setTicketForm({ ...ticketForm, category: e.target.value })}
+                                            className="w-full h-10 px-3 rounded-md border bg-background text-sm"
+                                        >
+                                            {ticketCategories.map(cat => (
+                                                <option key={cat} value={cat}>{cat}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Priority</Label>
+                                    <div className="flex gap-3">
+                                        {priorities.map(p => (
+                                            <button
+                                                key={p}
+                                                type="button"
+                                                onClick={() => setTicketForm({ ...ticketForm, priority: p })}
+                                                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${ticketForm.priority === p
+                                                        ? getPriorityColor(p) + ' border-2'
+                                                        : 'border-gray-200 hover:border-gray-300'
+                                                    }`}
+                                            >
+                                                {p}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="ticket-description">Description *</Label>
+                                    <Textarea
+                                        id="ticket-description"
+                                        rows={5}
+                                        placeholder="Please describe your issue in detail..."
+                                        value={ticketForm.description}
+                                        onChange={e => setTicketForm({ ...ticketForm, description: e.target.value })}
+                                    />
+                                </div>
+                                <Button type="submit" disabled={ticketLoading} className="btn-primary">
+                                    <Ticket className="w-4 h-4 mr-2" />
+                                    {ticketLoading ? 'Creating...' : 'Create Ticket'}
+                                </Button>
+                            </form>
+                        </motion.div>
+
+                        {/* Existing Tickets List */}
+                        <div>
+                            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                                <ClockIcon className="w-5 h-5 text-primary" />
+                                Your Tickets
+                            </h2>
+                            <div className="space-y-4">
+                                {tickets.map((ticket, index) => (
+                                    <motion.div
+                                        key={ticket.id}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: index * 0.1 }}
+                                        className="bg-card rounded-xl border p-5 hover:shadow-md transition-shadow"
+                                    >
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <span className="font-mono text-sm text-muted-foreground">{ticket.id}</span>
+                                                    <Badge className={`text-xs ${getPriorityColor(ticket.priority)}`}>
+                                                        {ticket.priority}
+                                                    </Badge>
+                                                    <Badge variant="outline" className="text-xs">{ticket.category}</Badge>
+                                                </div>
+                                                <h3 className="font-semibold">{ticket.subject}</h3>
+                                                <p className="text-sm text-muted-foreground mt-1">
+                                                    Created: {ticket.date} • Last update: {ticket.lastUpdate}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className={`px-3 py-1.5 rounded-full text-white text-sm font-medium flex items-center gap-2 ${getStatusColor(ticket.status)}`}>
+                                                    {ticket.status === 'Open' && <AlertCircle className="w-4 h-4" />}
+                                                    {ticket.status === 'In Progress' && <ClockIcon className="w-4 h-4" />}
+                                                    {ticket.status === 'Resolved' && <CheckCircle className="w-4 h-4" />}
+                                                    {ticket.status}
+                                                </div>
+                                                <Button variant="outline" size="sm">
+                                                    View Details
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mt-12 rounded-2xl overflow-hidden h-64 bg-secondary">
+                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                        <MapPin className="w-8 h-8 mr-2" /> Map placeholder - Add Google Maps integration
+                    </div>
+                </motion.div>
+            </div>
+        </div>
+    );
+};
+
+export default ContactPage;

@@ -16,6 +16,9 @@ import UserDashboard from './pages/UserDashboard';
 import VendorDashboard from './pages/VendorDashboard';
 import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
+import WishlistPage from './pages/WishlistPage';
+import ComparePage from './pages/ComparePage';
+import BlogPage from './pages/BlogPage';
 
 // Components
 import Header from './components/Header';
@@ -36,6 +39,16 @@ export const useAuth = () => useContext(AuthContext);
 const CartContext = createContext(null);
 
 export const useCart = () => useContext(CartContext);
+
+// Wishlist Context
+const WishlistContext = createContext(null);
+
+export const useWishlist = () => useContext(WishlistContext);
+
+// Compare Context
+const CompareContext = createContext(null);
+
+export const useCompare = () => useContext(CompareContext);
 
 // Auth Provider
 const AuthProvider = ({ children }) => {
@@ -139,18 +152,103 @@ const CartProvider = ({ children }) => {
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ 
-      cart, addToCart, removeFromCart, updateQuantity, clearCart, cartTotal, cartCount 
+    <CartContext.Provider value={{
+      cart, addToCart, removeFromCart, updateQuantity, clearCart, cartTotal, cartCount
     }}>
       {children}
     </CartContext.Provider>
   );
 };
 
+// Wishlist Provider
+const WishlistProvider = ({ children }) => {
+  const [wishlist, setWishlist] = useState(() => {
+    const saved = localStorage.getItem('wishlist');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('wishlist', JSON.stringify(wishlist));
+  }, [wishlist]);
+
+  const addToWishlist = (product) => {
+    setWishlist(prev => {
+      if (prev.find(item => item.id === product.id)) {
+        return prev;
+      }
+      return [...prev, product];
+    });
+  };
+
+  const removeFromWishlist = (productId) => {
+    setWishlist(prev => prev.filter(item => item.id !== productId));
+  };
+
+  const isInWishlist = (productId) => {
+    return wishlist.some(item => item.id === productId);
+  };
+
+  const clearWishlist = () => setWishlist([]);
+
+  const wishlistCount = wishlist.length;
+
+  return (
+    <WishlistContext.Provider value={{
+      wishlist, addToWishlist, removeFromWishlist, isInWishlist, clearWishlist, wishlistCount
+    }}>
+      {children}
+    </WishlistContext.Provider>
+  );
+};
+
+// Compare Provider
+const CompareProvider = ({ children }) => {
+  const [compareList, setCompareList] = useState(() => {
+    const saved = localStorage.getItem('compare');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('compare', JSON.stringify(compareList));
+  }, [compareList]);
+
+  const addToCompare = (product) => {
+    setCompareList(prev => {
+      if (prev.find(item => item.id === product.id)) {
+        return prev;
+      }
+      if (prev.length >= 4) {
+        return prev; // Max 4 items
+      }
+      return [...prev, product];
+    });
+  };
+
+  const removeFromCompare = (productId) => {
+    setCompareList(prev => prev.filter(item => item.id !== productId));
+  };
+
+  const isInCompare = (productId) => {
+    return compareList.some(item => item.id === productId);
+  };
+
+  const clearCompare = () => setCompareList([]);
+
+  const compareCount = compareList.length;
+
+  return (
+    <CompareContext.Provider value={{
+      compareList, addToCompare, removeFromCompare, isInCompare, clearCompare, compareCount
+    }}>
+      {children}
+    </CompareContext.Provider>
+  );
+};
+
 // Protected Route
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -158,15 +256,15 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
       </div>
     );
   }
-  
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  
+
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
-  
+
   return children;
 };
 
@@ -200,36 +298,43 @@ function App() {
   return (
     <AuthProvider>
       <CartProvider>
-        <BrowserRouter>
-          <Toaster position="top-right" richColors />
-          <Routes>
-            <Route path="/" element={<Layout><HomePage /></Layout>} />
-            <Route path="/shop" element={<Layout><ShopPage /></Layout>} />
-            <Route path="/shop/:category" element={<Layout><ShopPage /></Layout>} />
-            <Route path="/product/:id" element={<Layout><ProductPage /></Layout>} />
-            <Route path="/calculator" element={<Layout><CalculatorPage /></Layout>} />
-            <Route path="/contact" element={<Layout><ContactPage /></Layout>} />
-            <Route path="/login" element={<Layout><LoginPage /></Layout>} />
-            <Route path="/register" element={<Layout><RegisterPage /></Layout>} />
-            <Route path="/vendor/register" element={<Layout><VendorRegisterPage /></Layout>} />
-            <Route path="/cart" element={<Layout><CartPage /></Layout>} />
-            <Route path="/checkout" element={
-              <ProtectedRoute>
-                <Layout><CheckoutPage /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard" element={
-              <ProtectedRoute allowedRoles={['customer', 'admin']}>
-                <Layout><UserDashboard /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/vendor/dashboard" element={
-              <ProtectedRoute allowedRoles={['vendor', 'admin']}>
-                <Layout><VendorDashboard /></Layout>
-              </ProtectedRoute>
-            } />
-          </Routes>
-        </BrowserRouter>
+        <WishlistProvider>
+          <CompareProvider>
+            <BrowserRouter>
+              <Toaster position="top-right" richColors />
+              <Routes>
+                <Route path="/" element={<Layout><HomePage /></Layout>} />
+                <Route path="/shop" element={<Layout><ShopPage /></Layout>} />
+                <Route path="/shop/:category" element={<Layout><ShopPage /></Layout>} />
+                <Route path="/product/:id" element={<Layout><ProductPage /></Layout>} />
+                <Route path="/calculator" element={<Layout><CalculatorPage /></Layout>} />
+                <Route path="/contact" element={<Layout><ContactPage /></Layout>} />
+                <Route path="/login" element={<Layout><LoginPage /></Layout>} />
+                <Route path="/register" element={<Layout><RegisterPage /></Layout>} />
+                <Route path="/vendor/register" element={<Layout><VendorRegisterPage /></Layout>} />
+                <Route path="/cart" element={<Layout><CartPage /></Layout>} />
+                <Route path="/wishlist" element={<Layout><WishlistPage /></Layout>} />
+                <Route path="/compare" element={<Layout><ComparePage /></Layout>} />
+                <Route path="/blog" element={<Layout><BlogPage /></Layout>} />
+                <Route path="/checkout" element={
+                  <ProtectedRoute>
+                    <Layout><CheckoutPage /></Layout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard" element={
+                  <ProtectedRoute allowedRoles={['customer', 'admin']}>
+                    <Layout><UserDashboard /></Layout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/vendor/dashboard" element={
+                  <ProtectedRoute allowedRoles={['vendor', 'admin']}>
+                    <Layout><VendorDashboard /></Layout>
+                  </ProtectedRoute>
+                } />
+              </Routes>
+            </BrowserRouter>
+          </CompareProvider>
+        </WishlistProvider>
       </CartProvider>
     </AuthProvider>
   );
