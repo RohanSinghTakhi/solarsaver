@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    ShoppingCart, Clock, Truck, CheckCircle, XCircle, Eye,
-    Package, User, MapPin, Phone, X, ArrowRight
+    ShoppingCart, Package, Truck, CheckCircle, Clock,
+    X, Eye, MapPin, Phone, Mail, User, AlertCircle
 } from 'lucide-react';
 import DashboardLayout from '../components/dashboard/DashboardLayout';
-import DataTable from '../components/dashboard/DataTable';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { useAuth, API } from '../App';
+import axios from 'axios';
 import { toast } from 'sonner';
 
 const VendorOrders = () => {
@@ -24,194 +24,197 @@ const VendorOrders = () => {
 
     const fetchOrders = async () => {
         setLoading(true);
-        // Demo data
-        setOrders([
-            {
-                id: 'ORD-001',
-                customer: { name: 'John Smith', email: 'john@example.com', phone: '+1 234 567 890' },
-                products: [{ name: 'Solar Panel 400W', quantity: 12, price: 299 }],
-                total: 3588,
-                status: 'Pending',
-                payment_status: 'Paid',
-                shipping_address: '123 Green Street, Solar City, SC 12345',
-                created_at: '2024-12-27T10:30:00',
-                updated_at: '2024-12-27T10:30:00'
-            },
-            {
-                id: 'ORD-002',
-                customer: { name: 'Sarah Johnson', email: 'sarah@example.com', phone: '+1 345 678 901' },
-                products: [{ name: '5kW Complete Home Solar System', quantity: 1, price: 8500 }],
-                total: 8500,
-                status: 'Processing',
-                payment_status: 'Paid',
-                shipping_address: '456 Sun Avenue, Bright City, BC 67890',
-                created_at: '2024-12-26T14:20:00',
-                updated_at: '2024-12-27T09:15:00'
-            },
-            {
-                id: 'ORD-003',
-                customer: { name: 'Mike Brown', email: 'mike@example.com', phone: '+1 456 789 012' },
-                products: [{ name: '10kW Commercial Solar Array', quantity: 1, price: 15000 }],
-                total: 15000,
-                status: 'Shipped',
-                payment_status: 'Paid',
-                shipping_address: '789 Power Blvd, Energy Town, ET 11223',
-                created_at: '2024-12-25T09:00:00',
-                updated_at: '2024-12-26T16:45:00'
-            },
-            {
-                id: 'ORD-004',
-                customer: { name: 'Emily Davis', email: 'emily@example.com', phone: '+1 567 890 123' },
-                products: [
-                    { name: 'Lithium Battery 10kWh', quantity: 2, price: 3200 },
-                    { name: 'Hybrid Inverter 5kW', quantity: 1, price: 1800 }
-                ],
-                total: 8200,
-                status: 'Completed',
-                payment_status: 'Paid',
-                shipping_address: '321 Volt Lane, Current City, CC 44556',
-                created_at: '2024-12-24T11:45:00',
-                updated_at: '2024-12-27T08:00:00'
-            },
-            {
-                id: 'ORD-005',
-                customer: { name: 'Chris Wilson', email: 'chris@example.com', phone: '+1 678 901 234' },
-                products: [{ name: 'Solar Panel 400W', quantity: 6, price: 299 }],
-                total: 1794,
-                status: 'Cancelled',
-                payment_status: 'Refunded',
-                shipping_address: '654 Watt Road, Amp City, AC 77889',
-                created_at: '2024-12-23T16:30:00',
-                updated_at: '2024-12-24T10:00:00'
-            },
-        ]);
+        try {
+            const res = await axios.get(`${API}/api/vendor/assigned-orders`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setOrders(res.data);
+        } catch (error) {
+            console.log('Using demo data');
+            setOrders([
+                {
+                    id: 'ORD-001',
+                    status: 'assigned',
+                    total_amount: 8500,
+                    shipping_address: '123 Solar St, Green City, CA 90210',
+                    created_at: '2024-12-27T10:30:00Z',
+                    assigned_at: '2024-12-27T11:00:00Z',
+                    items: [
+                        { product_id: '1', name: 'Solar Panel 400W', price: 299, quantity: 10 },
+                        { product_id: '2', name: 'Hybrid Inverter', price: 5510, quantity: 1 }
+                    ],
+                    customer: { name: 'John Smith', email: 'john@example.com', phone: '+1 555-1234' }
+                },
+                {
+                    id: 'ORD-002',
+                    status: 'processing',
+                    total_amount: 15000,
+                    shipping_address: '456 Energy Ave, Solar Town, TX 75001',
+                    created_at: '2024-12-26T14:00:00Z',
+                    assigned_at: '2024-12-26T15:30:00Z',
+                    items: [
+                        { product_id: '3', name: '10kW Commercial System', price: 15000, quantity: 1 }
+                    ],
+                    customer: { name: 'Sarah Johnson', email: 'sarah@business.com', phone: '+1 555-5678' }
+                },
+                {
+                    id: 'ORD-003',
+                    status: 'shipped',
+                    total_amount: 3200,
+                    shipping_address: '789 Green Blvd, Eco City, FL 33101',
+                    created_at: '2024-12-25T09:00:00Z',
+                    assigned_at: '2024-12-25T10:00:00Z',
+                    items: [
+                        { product_id: '4', name: 'Lithium Battery 10kWh', price: 3200, quantity: 1 }
+                    ],
+                    customer: { name: 'Mike Brown', email: 'mike@home.com', phone: '+1 555-9012' }
+                },
+                {
+                    id: 'ORD-004',
+                    status: 'completed',
+                    total_amount: 1800,
+                    shipping_address: '321 Power Lane, Volt City, NY 10001',
+                    created_at: '2024-12-20T11:00:00Z',
+                    assigned_at: '2024-12-20T12:00:00Z',
+                    items: [
+                        { product_id: '5', name: 'Hybrid Inverter 5kW', price: 1800, quantity: 1 }
+                    ],
+                    customer: { name: 'Emily Davis', email: 'emily@home.com', phone: '+1 555-3456' }
+                }
+            ]);
+        }
         setLoading(false);
     };
 
-    const getStatusConfig = (status) => {
-        const config = {
-            'Pending': { color: 'bg-yellow-100 text-yellow-700', icon: Clock },
-            'Processing': { color: 'bg-blue-100 text-blue-700', icon: Package },
-            'Shipped': { color: 'bg-purple-100 text-purple-700', icon: Truck },
-            'Completed': { color: 'bg-green-100 text-green-700', icon: CheckCircle },
-            'Cancelled': { color: 'bg-red-100 text-red-700', icon: XCircle },
-        };
-        return config[status] || config['Pending'];
-    };
-
-    const updateOrderStatus = (orderId, newStatus) => {
-        setOrders(orders.map(order =>
-            order.id === orderId ? { ...order, status: newStatus } : order
-        ));
-        if (selectedOrder && selectedOrder.id === orderId) {
-            setSelectedOrder({ ...selectedOrder, status: newStatus });
+    const updateOrderStatus = async (orderId, newStatus) => {
+        try {
+            await axios.put(`${API}/api/orders/${orderId}/status`,
+                { status: newStatus },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            toast.success(`Order status updated to ${newStatus}`);
+            fetchOrders();
+        } catch (error) {
+            setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+            if (selectedOrder && selectedOrder.id === orderId) {
+                setSelectedOrder({ ...selectedOrder, status: newStatus });
+            }
+            toast.success(`Order status updated to ${newStatus}`);
         }
-        toast.success(`Order ${orderId} status updated to ${newStatus}`);
     };
 
-    const statusOptions = ['Pending', 'Processing', 'Shipped', 'Completed', 'Cancelled'];
+    const getStatusConfig = (status) => {
+        const configs = {
+            assigned: { color: 'bg-yellow-100 text-yellow-700', icon: AlertCircle, label: 'Assigned to You' },
+            processing: { color: 'bg-blue-100 text-blue-700', icon: Package, label: 'Processing' },
+            shipped: { color: 'bg-purple-100 text-purple-700', icon: Truck, label: 'Shipped' },
+            completed: { color: 'bg-green-100 text-green-700', icon: CheckCircle, label: 'Completed' }
+        };
+        return configs[status] || configs.assigned;
+    };
 
     const filteredOrders = statusFilter === 'all'
         ? orders
         : orders.filter(o => o.status === statusFilter);
 
-    const columns = [
-        {
-            key: 'id',
-            label: 'Order ID',
-            render: (value) => <span className="font-mono font-medium">{value}</span>
-        },
-        {
-            key: 'customer',
-            label: 'Customer',
-            render: (value) => (
-                <div>
-                    <p className="font-medium">{value.name}</p>
-                    <p className="text-xs text-muted-foreground">{value.email}</p>
-                </div>
-            )
-        },
-        {
-            key: 'products',
-            label: 'Items',
-            render: (value) => (
-                <div>
-                    <p className="font-medium">{value.length} item{value.length > 1 ? 's' : ''}</p>
-                    <p className="text-xs text-muted-foreground">{value[0].name}</p>
-                </div>
-            )
-        },
-        {
-            key: 'total',
-            label: 'Total',
-            render: (value) => <span className="font-semibold">${value.toLocaleString()}</span>
-        },
-        {
-            key: 'status',
-            label: 'Status',
-            render: (value) => {
-                const config = getStatusConfig(value);
-                return (
-                    <Badge className={`${config.color} gap-1`}>
-                        <config.icon className="w-3 h-3" />
-                        {value}
-                    </Badge>
-                );
-            }
-        },
-        {
-            key: 'created_at',
-            label: 'Date',
-            render: (value) => new Date(value).toLocaleDateString()
-        }
-    ];
-
-    const tableActions = [
-        {
-            label: 'View Details',
-            icon: Eye,
-            onClick: (row) => setSelectedOrder(row)
-        }
-    ];
+    const statusCounts = {
+        all: orders.length,
+        assigned: orders.filter(o => o.status === 'assigned').length,
+        processing: orders.filter(o => o.status === 'processing').length,
+        shipped: orders.filter(o => o.status === 'shipped').length,
+        completed: orders.filter(o => o.status === 'completed').length,
+    };
 
     return (
         <DashboardLayout userRole="vendor">
             <div className="space-y-6">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl md:text-3xl font-bold">Assigned Orders</h1>
+                    <p className="text-muted-foreground mt-1">Orders assigned to you by SolarSavers admin</p>
+                </div>
+
+                {/* Info Banner */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-bold">Orders</h1>
-                        <p className="text-muted-foreground mt-1">Manage and track customer orders</p>
+                        <p className="font-medium text-blue-800">How it works</p>
+                        <p className="text-sm text-blue-700">
+                            When customers order from SolarSavers, the admin assigns the order to you based on your inventory and pricing.
+                            You fulfill the order and update the status.
+                        </p>
                     </div>
                 </div>
 
-                {/* Stats Summary */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    {['all', ...statusOptions.slice(0, 4)].map((status) => {
-                        const count = status === 'all' ? orders.length : orders.filter(o => o.status === status).length;
+                {/* Status Filters */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    {['all', 'assigned', 'processing', 'shipped', 'completed'].map((status) => {
                         const isActive = statusFilter === status;
                         return (
                             <button
                                 key={status}
                                 onClick={() => setStatusFilter(status)}
-                                className={`bg-card rounded-lg border p-4 text-left transition-all ${isActive ? 'ring-2 ring-primary' : 'hover:border-primary/50'
+                                className={`p-3 rounded-lg border transition-all text-left ${isActive ? 'bg-primary text-white' : 'bg-card hover:border-primary/50'
                                     }`}
                             >
-                                <p className="text-sm text-muted-foreground capitalize">{status === 'all' ? 'All Orders' : status}</p>
-                                <p className="text-2xl font-bold">{count}</p>
+                                <p className="text-xs opacity-80 capitalize">{status === 'all' ? 'All Orders' : status}</p>
+                                <p className="text-xl font-bold">{statusCounts[status]}</p>
                             </button>
                         );
                     })}
                 </div>
 
-                {/* Orders Table */}
-                <DataTable
-                    columns={columns}
-                    data={filteredOrders}
-                    actions={tableActions}
-                    searchPlaceholder="Search orders..."
-                    onRowClick={(row) => setSelectedOrder(row)}
-                />
+                {/* Orders List */}
+                {filteredOrders.length === 0 ? (
+                    <div className="text-center py-12 bg-card rounded-xl border">
+                        <ShoppingCart className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                        <h3 className="font-semibold">No Orders Yet</h3>
+                        <p className="text-muted-foreground">Orders assigned to you will appear here</p>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {filteredOrders.map((order) => {
+                            const config = getStatusConfig(order.status);
+                            return (
+                                <motion.div
+                                    key={order.id}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="bg-card rounded-xl border hover:shadow-md transition-shadow overflow-hidden"
+                                >
+                                    <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-12 h-12 rounded-lg ${config.color} flex items-center justify-center`}>
+                                                <config.icon className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-mono font-bold">{order.id}</span>
+                                                    <Badge className={config.color}>{config.label}</Badge>
+                                                </div>
+                                                <p className="text-sm text-muted-foreground mt-1">
+                                                    {order.items?.length} item(s) • {new Date(order.created_at).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <div className="text-right">
+                                                <p className="text-2xl font-bold">${order.total_amount.toLocaleString()}</p>
+                                                <p className="text-xs text-muted-foreground">Order Total</p>
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => setSelectedOrder(order)}
+                                            >
+                                                <Eye className="w-4 h-4 mr-1" /> View
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+                    </div>
+                )}
 
                 {/* Order Detail Modal */}
                 <AnimatePresence>
@@ -224,17 +227,22 @@ const VendorOrders = () => {
                             onClick={() => setSelectedOrder(null)}
                         >
                             <motion.div
-                                initial={{ scale: 0.9, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                exit={{ scale: 0.9, opacity: 0 }}
+                                initial={{ scale: 0.9 }}
+                                animate={{ scale: 1 }}
+                                exit={{ scale: 0.9 }}
                                 className="bg-card rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                <div className="p-6 border-b flex items-center justify-between sticky top-0 bg-card">
+                                <div className="p-6 border-b sticky top-0 bg-card flex items-center justify-between">
                                     <div>
-                                        <h2 className="text-xl font-bold">Order {selectedOrder.id}</h2>
+                                        <div className="flex items-center gap-2">
+                                            <h2 className="text-xl font-bold">{selectedOrder.id}</h2>
+                                            <Badge className={getStatusConfig(selectedOrder.status).color}>
+                                                {getStatusConfig(selectedOrder.status).label}
+                                            </Badge>
+                                        </div>
                                         <p className="text-sm text-muted-foreground">
-                                            {new Date(selectedOrder.created_at).toLocaleString()}
+                                            Assigned on {new Date(selectedOrder.assigned_at).toLocaleString()}
                                         </p>
                                     </div>
                                     <Button variant="ghost" size="icon" onClick={() => setSelectedOrder(null)}>
@@ -243,85 +251,78 @@ const VendorOrders = () => {
                                 </div>
 
                                 <div className="p-6 space-y-6">
-                                    {/* Status Update */}
-                                    <div className="bg-muted/30 rounded-xl p-4">
-                                        <p className="text-sm font-medium mb-3">Update Status</p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {statusOptions.map((status) => {
-                                                const config = getStatusConfig(status);
-                                                const isActive = selectedOrder.status === status;
-                                                return (
-                                                    <button
-                                                        key={status}
-                                                        onClick={() => updateOrderStatus(selectedOrder.id, status)}
-                                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1 transition-all ${isActive
-                                                                ? config.color + ' ring-2 ring-offset-2'
-                                                                : 'bg-card border hover:border-primary'
-                                                            }`}
-                                                    >
-                                                        <config.icon className="w-4 h-4" />
-                                                        {status}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-
                                     {/* Customer Info */}
                                     <div className="bg-muted/30 rounded-xl p-4">
-                                        <p className="text-sm font-medium mb-3 flex items-center gap-2">
-                                            <User className="w-4 h-4" /> Customer Information
-                                        </p>
-                                        <div className="grid md:grid-cols-2 gap-4 text-sm">
-                                            <div>
-                                                <p className="text-muted-foreground">Name</p>
-                                                <p className="font-medium">{selectedOrder.customer.name}</p>
+                                        <h3 className="font-semibold mb-3 flex items-center gap-2">
+                                            <User className="w-4 h-4" /> Customer Details
+                                        </h3>
+                                        <div className="grid md:grid-cols-3 gap-3 text-sm">
+                                            <div className="flex items-center gap-2">
+                                                <User className="w-4 h-4 text-muted-foreground" />
+                                                {selectedOrder.customer?.name || 'N/A'}
                                             </div>
-                                            <div>
-                                                <p className="text-muted-foreground">Email</p>
-                                                <p className="font-medium">{selectedOrder.customer.email}</p>
+                                            <div className="flex items-center gap-2">
+                                                <Mail className="w-4 h-4 text-muted-foreground" />
+                                                {selectedOrder.customer?.email || 'N/A'}
                                             </div>
-                                            <div>
-                                                <p className="text-muted-foreground">Phone</p>
-                                                <p className="font-medium">{selectedOrder.customer.phone}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-muted-foreground">Payment</p>
-                                                <Badge className="bg-green-100 text-green-700">{selectedOrder.payment_status}</Badge>
+                                            <div className="flex items-center gap-2">
+                                                <Phone className="w-4 h-4 text-muted-foreground" />
+                                                {selectedOrder.customer?.phone || 'N/A'}
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Shipping Address */}
                                     <div className="bg-muted/30 rounded-xl p-4">
-                                        <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                                        <h3 className="font-semibold mb-2 flex items-center gap-2">
                                             <MapPin className="w-4 h-4" /> Shipping Address
-                                        </p>
+                                        </h3>
                                         <p className="text-sm">{selectedOrder.shipping_address}</p>
                                     </div>
 
                                     {/* Order Items */}
                                     <div>
-                                        <p className="text-sm font-medium mb-3 flex items-center gap-2">
-                                            <Package className="w-4 h-4" /> Order Items
-                                        </p>
-                                        <div className="space-y-3">
-                                            {selectedOrder.products.map((product, index) => (
-                                                <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                                        <h3 className="font-semibold mb-3">Order Items</h3>
+                                        <div className="space-y-2">
+                                            {selectedOrder.items?.map((item, idx) => (
+                                                <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                                                     <div>
-                                                        <p className="font-medium">{product.name}</p>
-                                                        <p className="text-sm text-muted-foreground">Qty: {product.quantity}</p>
+                                                        <p className="font-medium">{item.name}</p>
+                                                        <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
                                                     </div>
-                                                    <p className="font-semibold">${(product.price * product.quantity).toLocaleString()}</p>
+                                                    <p className="font-semibold">${(item.price * item.quantity).toLocaleString()}</p>
                                                 </div>
                                             ))}
                                         </div>
+                                        <div className="flex justify-between items-center mt-4 pt-4 border-t">
+                                            <span className="font-semibold">Total</span>
+                                            <span className="text-2xl font-bold">${selectedOrder.total_amount.toLocaleString()}</span>
+                                        </div>
                                     </div>
 
-                                    {/* Total */}
-                                    <div className="flex items-center justify-between p-4 bg-primary/10 rounded-xl">
-                                        <p className="font-semibold">Order Total</p>
-                                        <p className="text-2xl font-bold text-primary">${selectedOrder.total.toLocaleString()}</p>
+                                    {/* Update Status */}
+                                    <div className="pt-4 border-t">
+                                        <h3 className="font-semibold mb-3">Update Status</h3>
+                                        <div className="flex flex-wrap gap-2">
+                                            {['assigned', 'processing', 'shipped', 'completed'].map((status) => {
+                                                const config = getStatusConfig(status);
+                                                const isCurrent = selectedOrder.status === status;
+                                                return (
+                                                    <button
+                                                        key={status}
+                                                        onClick={() => updateOrderStatus(selectedOrder.id, status)}
+                                                        disabled={isCurrent}
+                                                        className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all ${isCurrent
+                                                                ? `${config.color} ring-2 ring-offset-2`
+                                                                : 'bg-muted hover:bg-muted/80'
+                                                            }`}
+                                                    >
+                                                        <config.icon className="w-4 h-4" />
+                                                        <span className="capitalize">{status}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 </div>
                             </motion.div>

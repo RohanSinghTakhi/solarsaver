@@ -122,6 +122,51 @@ class ProductUpdate(BaseModel):
     price: Optional[float] = None
     in_stock: Optional[bool] = None
 
+# ============== MVSP (Multi-Vendor Single Product) MODELS ==============
+
+class VendorInventoryCreate(BaseModel):
+    product_id: str
+    quantity: int
+    vendor_price: float  # Must be <= product's sell_price
+    location: Optional[str] = None
+
+class VendorInventoryUpdate(BaseModel):
+    quantity: Optional[int] = None
+    vendor_price: Optional[float] = None
+    is_available: Optional[bool] = None
+
+class VendorInventoryResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    vendor_id: str
+    vendor_name: str
+    product_id: str
+    product_name: str
+    quantity: int
+    vendor_price: float
+    sell_price: float  # SolarSavers price
+    is_available: bool
+    location: Optional[str] = None
+    updated_at: str
+
+class ProductSuggestion(BaseModel):
+    """Vendor submits a new product suggestion for admin approval"""
+    name: str
+    description: str
+    category: str
+    system_size_kw: float
+    suggested_price: float
+    efficiency_rating: float
+    warranty_years: int
+    brand: str
+    image_url: str
+    features: List[str] = []
+
+class OrderAssignment(BaseModel):
+    vendor_id: str
+    assignment_notes: Optional[str] = None
+
+
 class SolarCalculatorInput(BaseModel):
     monthly_bill: float
     property_type: str  # home, commercial
@@ -942,11 +987,354 @@ async def seed_data():
     
     return {"message": "Database seeded successfully", "products_count": len(products)}
 
+# ============== MVSP VENDOR INVENTORY ==============
+
+@api_router.get("/vendor/inventory", response_model=List[VendorInventoryResponse])
+async def get_vendor_inventory(current_user: dict = Depends(get_vendor_user)):
+    """Get all products in vendor's inventory"""
+    inventory = await db.vendor_inventory.find(
+        {"vendor_id": current_user["id"]}, {"_id": 0}
+    ).to_list(100)
+    
+    response = []
+    for item in inventory:
+        product = await db.products.find_one({"id": item["product_id"]}, {"_id": 0})
+        if product:
+            response.append(VendorInventoryResponse(
+                id=item["id"],
+                vendor_id=item["vendor_id"],
+                vendor_name=current_user.get("business_name", current_user["name"]),
+                product_id=item["product_id"],
+                product_name=product["name"],
+                quantity=item["quantity"],
+                vendor_price=item["vendor_price"],
+                sell_price=product["price"],
+                is_available=item.get("is_available", True),
+                location=item.get("location"),
+                updated_at=item.get("updated_at", item.get("created_at", ""))
+            ))
+    return response
+
+@api_router.post("/vendor/inventory", response_model=VendorInventoryResponse)
+async def add_to_inventory(
+    inventory_data: VendorInventoryCreate, 
+    current_user: dict = Depends(get_vendor_user)
+):
+    """Add a global product to vendor's inventory with their price"""
+    # Check if product exists
+    product = await db.products.find_one({"id": inventory_data.product_id}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    # Check if vendor price is valid (must be <= sell price)
+    if inventory_data.vendor_price > product["price"]:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Vendor price must be less than or equal to sell price (${product['price']})"
+        )
+    
+    # Check if already in inventory
+    existing = await db.vendor_inventory.find_one({
+        "vendor_id": current_user["id"],
+        "product_id": inventory_data.product_id
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Product already in your inventory")
+    
+    inventory_id = str(uuid.uuid4())
+    inventory_doc = {
+        "id": inventory_id,
+        "vendor_id": current_user["id"],
+        "product_id": inventory_data.product_id,
+        "quantity": inventory_data.quantity,
+        "vendor_price": inventory_data.vendor_price,
+        "location": inventory_data.location,
+        "is_available": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.vendor_inventory.insert_one(inventory_doc)
+    
+    return VendorInventoryResponse(
+        id=inventory_id,
+        vendor_id=current_user["id"],
+        vendor_name=current_user.get("business_name", current_user["name"]),
+        product_id=inventory_data.product_id,
+        product_name=product["name"],
+        quantity=inventory_data.quantity,
+        vendor_price=inventory_data.vendor_price,
+        sell_price=product["price"],
+        is_available=True,
+        location=inventory_data.location,
+        updated_at=inventory_doc["updated_at"]
+    )
+
+@api_router.put("/vendor/inventory/{inventory_id}")
+async def update_inventory(
+    inventory_id: str,
+    update_data: VendorInventoryUpdate,
+    current_user: dict = Depends(get_vendor_user)
+):
+    """Update vendor's inventory item"""
+    inventory = await db.vendor_inventory.find_one({
+        "id": inventory_id,
+        "vendor_id": current_user["id"]
+    })
+    if not inventory:
+        raise HTTPException(status_code=404, detail="Inventory item not found")
+    
+    update_fields = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    
+    if update_data.quantity is not None:
+        update_fields["quantity"] = update_data.quantity
+    if update_data.vendor_price is not None:
+        # Validate price
+        product = await db.products.find_one({"id": inventory["product_id"]})
+        if update_data.vendor_price > product["price"]:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Vendor price must be less than or equal to sell price"
+            )
+        update_fields["vendor_price"] = update_data.vendor_price
+    if update_data.is_available is not None:
+        update_fields["is_available"] = update_data.is_available
+    
+    await db.vendor_inventory.update_one(
+        {"id": inventory_id},
+        {"$set": update_fields}
+    )
+    return {"message": "Inventory updated successfully"}
+
+@api_router.delete("/vendor/inventory/{inventory_id}")
+async def remove_from_inventory(
+    inventory_id: str,
+    current_user: dict = Depends(get_vendor_user)
+):
+    """Remove product from vendor's inventory"""
+    result = await db.vendor_inventory.delete_one({
+        "id": inventory_id,
+        "vendor_id": current_user["id"]
+    })
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Inventory item not found")
+    return {"message": "Product removed from inventory"}
+
+# ============== VENDOR PRODUCT SUGGESTIONS ==============
+
+@api_router.post("/vendor/suggest-product")
+async def suggest_product(
+    product: ProductSuggestion,
+    current_user: dict = Depends(get_vendor_user)
+):
+    """Vendor suggests a new product for admin approval"""
+    suggestion_id = str(uuid.uuid4())
+    suggestion_doc = {
+        "id": suggestion_id,
+        "vendor_id": current_user["id"],
+        "vendor_name": current_user.get("business_name", current_user["name"]),
+        **product.model_dump(),
+        "status": "pending",  # pending, approved, rejected
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.product_suggestions.insert_one(suggestion_doc)
+    return {"message": "Product suggestion submitted for approval", "id": suggestion_id}
+
+@api_router.get("/admin/product-suggestions")
+async def get_product_suggestions(current_user: dict = Depends(get_admin_user)):
+    """Get all pending product suggestions"""
+    suggestions = await db.product_suggestions.find(
+        {"status": "pending"}, {"_id": 0}
+    ).to_list(100)
+    return suggestions
+
+@api_router.put("/admin/product-suggestions/{suggestion_id}/approve")
+async def approve_product_suggestion(
+    suggestion_id: str,
+    sell_price: float,
+    current_user: dict = Depends(get_admin_user)
+):
+    """Approve a product suggestion and add it to global products"""
+    suggestion = await db.product_suggestions.find_one({"id": suggestion_id})
+    if not suggestion:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+    
+    # Create the global product
+    product_id = str(uuid.uuid4())
+    product_doc = {
+        "id": product_id,
+        "vendor_id": "admin",  # Global product
+        "vendor_name": "SolarSavers",
+        "name": suggestion["name"],
+        "description": suggestion["description"],
+        "category": suggestion["category"],
+        "system_size_kw": suggestion["system_size_kw"],
+        "price": sell_price,  # Admin sets the sell price
+        "original_price": suggestion.get("suggested_price"),
+        "efficiency_rating": suggestion["efficiency_rating"],
+        "warranty_years": suggestion["warranty_years"],
+        "brand": suggestion["brand"],
+        "image_url": suggestion["image_url"],
+        "features": suggestion.get("features", []),
+        "in_stock": True,
+        "rating": 4.5,
+        "review_count": 0,
+        "is_approved": True,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.products.insert_one(product_doc)
+    
+    # Update suggestion status
+    await db.product_suggestions.update_one(
+        {"id": suggestion_id},
+        {"$set": {"status": "approved", "approved_product_id": product_id}}
+    )
+    
+    return {"message": "Product approved and added to catalog", "product_id": product_id}
+
+@api_router.put("/admin/product-suggestions/{suggestion_id}/reject")
+async def reject_product_suggestion(
+    suggestion_id: str,
+    reason: str = "",
+    current_user: dict = Depends(get_admin_user)
+):
+    """Reject a product suggestion"""
+    result = await db.product_suggestions.update_one(
+        {"id": suggestion_id},
+        {"$set": {"status": "rejected", "rejection_reason": reason}}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+    return {"message": "Product suggestion rejected"}
+
+# ============== ADMIN ORDER ASSIGNMENT ==============
+
+@api_router.get("/admin/orders/pending-assignment")
+async def get_orders_pending_assignment(current_user: dict = Depends(get_admin_user)):
+    """Get orders that need vendor assignment"""
+    orders = await db.orders.find(
+        {"assigned_vendor_id": {"$exists": False}},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return orders
+
+@api_router.get("/admin/orders/{order_id}/available-vendors")
+async def get_available_vendors_for_order(
+    order_id: str,
+    current_user: dict = Depends(get_admin_user)
+):
+    """Get list of vendors who have the products in this order"""
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Get product IDs from order
+    product_ids = [item["product_id"] for item in order.get("items", [])]
+    
+    # Find vendors who have ALL these products in their inventory
+    vendor_inventory = await db.vendor_inventory.find(
+        {
+            "product_id": {"$in": product_ids},
+            "is_available": True,
+            "quantity": {"$gt": 0}
+        },
+        {"_id": 0}
+    ).to_list(500)
+    
+    # Group by vendor
+    vendor_products = {}
+    for inv in vendor_inventory:
+        vid = inv["vendor_id"]
+        if vid not in vendor_products:
+            vendor_products[vid] = {
+                "products": [],
+                "total_price": 0
+            }
+        vendor_products[vid]["products"].append(inv["product_id"])
+        # Find quantity needed for this product
+        for item in order["items"]:
+            if item["product_id"] == inv["product_id"]:
+                vendor_products[vid]["total_price"] += inv["vendor_price"] * item["quantity"]
+    
+    # Get vendor details for those who have ALL products
+    available_vendors = []
+    for vid, data in vendor_products.items():
+        if all(pid in data["products"] for pid in product_ids):
+            vendor = await db.users.find_one({"id": vid}, {"_id": 0, "password": 0})
+            if vendor:
+                available_vendors.append({
+                    "vendor_id": vid,
+                    "vendor_name": vendor.get("business_name", vendor["name"]),
+                    "total_vendor_price": data["total_price"],
+                    "location": vendor.get("location"),
+                    "email": vendor["email"]
+                })
+    
+    # Sort by price (lowest first)
+    available_vendors.sort(key=lambda x: x["total_vendor_price"])
+    
+    return {
+        "order_id": order_id,
+        "order_total": order["total_amount"],
+        "available_vendors": available_vendors
+    }
+
+@api_router.put("/admin/orders/{order_id}/assign")
+async def assign_order_to_vendor(
+    order_id: str,
+    assignment: OrderAssignment,
+    current_user: dict = Depends(get_admin_user)
+):
+    """Assign an order to a specific vendor"""
+    # Verify order exists
+    order = await db.orders.find_one({"id": order_id})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Verify vendor exists
+    vendor = await db.users.find_one({"id": assignment.vendor_id, "role": "vendor"})
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    
+    # Update order with assignment
+    await db.orders.update_one(
+        {"id": order_id},
+        {"$set": {
+            "assigned_vendor_id": assignment.vendor_id,
+            "assigned_vendor_name": vendor.get("business_name", vendor["name"]),
+            "assigned_by": current_user["id"],
+            "assignment_notes": assignment.assignment_notes,
+            "assigned_at": datetime.now(timezone.utc).isoformat(),
+            "status": "assigned"
+        }}
+    )
+    
+    # Reduce vendor inventory
+    for item in order.get("items", []):
+        await db.vendor_inventory.update_one(
+            {
+                "vendor_id": assignment.vendor_id,
+                "product_id": item["product_id"]
+            },
+            {"$inc": {"quantity": -item["quantity"]}}
+        )
+    
+    return {"message": f"Order assigned to {vendor.get('business_name', vendor['name'])}"}
+
+@api_router.get("/vendor/assigned-orders")
+async def get_vendor_assigned_orders(current_user: dict = Depends(get_vendor_user)):
+    """Get orders assigned to this vendor"""
+    orders = await db.orders.find(
+        {"assigned_vendor_id": current_user["id"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return orders
+
 # ============== ROOT ==============
 
 @api_router.get("/")
 async def root():
     return {"message": "SolarSavers API", "version": "1.0.0"}
+
 
 # Include the router
 app.include_router(api_router)
