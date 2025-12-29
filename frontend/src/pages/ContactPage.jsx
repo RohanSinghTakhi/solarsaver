@@ -12,7 +12,7 @@ import { API, useAuth } from '../App';
 import { toast } from 'sonner';
 
 const ContactPage = () => {
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '' });
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('contact'); // 'contact' or 'tickets'
@@ -20,25 +20,81 @@ const ContactPage = () => {
     // Ticket form state
     const [ticketForm, setTicketForm] = useState({
         subject: '',
-        category: 'General Inquiry',
+        category: 'general',
         priority: 'Medium',
-        description: ''
+        description: '',
+        order_id: ''
     });
     const [ticketLoading, setTicketLoading] = useState(false);
+    const [tickets, setTickets] = useState([]);
+    const [ticketsLoading, setTicketsLoading] = useState(false);
+    const [orders, setOrders] = useState([]);
 
-    // Demo tickets for display
-    const [tickets, setTickets] = useState([
-        { id: 'TKT-001', subject: 'Solar panel installation query', category: 'Installation', priority: 'High', status: 'Open', date: '2024-12-25', lastUpdate: '2 hours ago' },
-        { id: 'TKT-002', subject: 'Warranty claim for inverter', category: 'Warranty', priority: 'Medium', status: 'In Progress', date: '2024-12-20', lastUpdate: '1 day ago' },
-        { id: 'TKT-003', subject: 'Billing inquiry', category: 'Billing', priority: 'Low', status: 'Resolved', date: '2024-12-15', lastUpdate: '5 days ago' }
-    ]);
+    // Fetch tickets and orders on mount
+    React.useEffect(() => {
+        if (user && token) {
+            fetchTickets();
+            fetchOrders();
+        }
+    }, [user, token]);
+
+    const fetchOrders = async () => {
+        try {
+            const res = await axios.get(`${API}/api/orders`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setOrders(res.data || []);
+        } catch (error) {
+            console.log('Could not fetch orders');
+            setOrders([]);
+        }
+    };
+
+    const fetchTickets = async () => {
+        setTicketsLoading(true);
+        try {
+            const res = await axios.get(`${API}/api/tickets`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setTickets(res.data.map(t => ({
+                id: t.id?.substring(0, 8).toUpperCase() || t.id,
+                fullId: t.id,
+                subject: t.subject,
+                category: t.category,
+                priority: t.priority?.charAt(0).toUpperCase() + t.priority?.slice(1) || 'Medium',
+                status: t.status === 'in_progress' ? 'In Progress' : t.status?.charAt(0).toUpperCase() + t.status?.slice(1),
+                date: t.created_at?.split('T')[0],
+                lastUpdate: getTimeAgo(t.updated_at)
+            })));
+        } catch (error) {
+            console.log('Using demo tickets');
+            setTickets([
+                { id: 'TKT-001', subject: 'Solar panel installation query', category: 'Installation', priority: 'High', status: 'Open', date: '2024-12-25', lastUpdate: '2 hours ago' }
+            ]);
+        }
+        setTicketsLoading(false);
+    };
+
+    const getTimeAgo = (dateStr) => {
+        if (!dateStr) return 'Just now';
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins} minutes ago`;
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) return `${diffHours} hours ago`;
+        const diffDays = Math.floor(diffHours / 24);
+        return `${diffDays} days ago`;
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!form.name || !form.email || !form.message) { toast.error('Please fill required fields'); return; }
         setLoading(true);
         try {
-            await axios.post(`${API}/contact`, form);
+            await axios.post(`${API}/api/contact`, form);
             toast.success('Message sent successfully!');
             setForm({ name: '', email: '', phone: '', subject: '', message: '' });
         } catch (error) { toast.error('Failed to send message'); }
@@ -51,25 +107,33 @@ const ContactPage = () => {
             toast.error('Please fill in subject and description');
             return;
         }
+        // Require order selection for non-general categories
+        if (ticketForm.category !== 'general' && !ticketForm.order_id) {
+            toast.error('Please select an order for this ticket category');
+            return;
+        }
         setTicketLoading(true);
 
-        // Simulate ticket creation
-        setTimeout(() => {
-            const newTicket = {
-                id: `TKT-${String(tickets.length + 1).padStart(3, '0')}`,
+        try {
+            await axios.post(`${API}/api/tickets`, {
                 subject: ticketForm.subject,
+                message: ticketForm.description,
                 category: ticketForm.category,
-                priority: ticketForm.priority,
-                status: 'Open',
-                date: new Date().toISOString().split('T')[0],
-                lastUpdate: 'Just now'
-            };
-            setTickets([newTicket, ...tickets]);
+                order_id: ticketForm.order_id || null
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
             toast.success('Support ticket created successfully!');
-            setTicketForm({ subject: '', category: 'General Inquiry', priority: 'Medium', description: '' });
-            setTicketLoading(false);
-        }, 1000);
+            setTicketForm({ subject: '', category: 'general', priority: 'Medium', description: '', order_id: '' });
+            fetchTickets();
+        } catch (error) {
+            toast.error('Failed to create ticket');
+        }
+        setTicketLoading(false);
     };
+
+    // Check if order selection should be shown
+    const showOrderSelect = ticketForm.category !== 'general';
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -115,8 +179,8 @@ const ContactPage = () => {
                         <button
                             onClick={() => setActiveTab('contact')}
                             className={`pb-4 px-2 font-medium transition-colors relative ${activeTab === 'contact'
-                                    ? 'text-primary'
-                                    : 'text-muted-foreground hover:text-foreground'
+                                ? 'text-primary'
+                                : 'text-muted-foreground hover:text-foreground'
                                 }`}
                         >
                             <MessageSquare className="w-4 h-4 inline mr-2" />
@@ -128,8 +192,8 @@ const ContactPage = () => {
                         <button
                             onClick={() => setActiveTab('tickets')}
                             className={`pb-4 px-2 font-medium transition-colors relative ${activeTab === 'tickets'
-                                    ? 'text-primary'
-                                    : 'text-muted-foreground hover:text-foreground'
+                                ? 'text-primary'
+                                : 'text-muted-foreground hover:text-foreground'
                                 }`}
                         >
                             <Ticket className="w-4 h-4 inline mr-2" />
@@ -223,7 +287,7 @@ const ContactPage = () => {
                                         <select
                                             id="ticket-category"
                                             value={ticketForm.category}
-                                            onChange={e => setTicketForm({ ...ticketForm, category: e.target.value })}
+                                            onChange={e => setTicketForm({ ...ticketForm, category: e.target.value, order_id: '' })}
                                             className="w-full h-10 px-3 rounded-md border bg-background text-sm"
                                         >
                                             {ticketCategories.map(cat => (
@@ -232,6 +296,33 @@ const ContactPage = () => {
                                         </select>
                                     </div>
                                 </div>
+
+                                {/* Order Selection - Shows when category is not general */}
+                                {showOrderSelect && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="ticket-order">Select Related Order *</Label>
+                                        {orders.length === 0 ? (
+                                            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                                                <AlertCircle className="w-4 h-4 inline mr-2" />
+                                                No orders found. You need to have placed an order to create a ticket for this category.
+                                            </div>
+                                        ) : (
+                                            <select
+                                                id="ticket-order"
+                                                value={ticketForm.order_id}
+                                                onChange={e => setTicketForm({ ...ticketForm, order_id: e.target.value })}
+                                                className="w-full h-10 px-3 rounded-md border bg-background text-sm"
+                                            >
+                                                <option value="">-- Select an Order --</option>
+                                                {orders.map(order => (
+                                                    <option key={order.id} value={order.id}>
+                                                        Order #{order.id?.substring(0, 8).toUpperCase()} - ${order.total_amount?.toLocaleString()} ({order.items?.map(i => i.name || 'Product').join(', ')})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    </div>
+                                )}
                                 <div className="space-y-2">
                                     <Label>Priority</Label>
                                     <div className="flex gap-3">
@@ -241,8 +332,8 @@ const ContactPage = () => {
                                                 type="button"
                                                 onClick={() => setTicketForm({ ...ticketForm, priority: p })}
                                                 className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${ticketForm.priority === p
-                                                        ? getPriorityColor(p) + ' border-2'
-                                                        : 'border-gray-200 hover:border-gray-300'
+                                                    ? getPriorityColor(p) + ' border-2'
+                                                    : 'border-gray-200 hover:border-gray-300'
                                                     }`}
                                             >
                                                 {p}

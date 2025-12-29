@@ -1,30 +1,63 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import axios from 'axios';
-import { Calculator, Sun, Home, Building2, Zap, Leaf, TrendingUp, ChevronRight } from 'lucide-react';
+import { Calculator, Sun, Home, Building2, Zap, Leaf, TrendingUp, ChevronRight, ShoppingCart, Star } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Switch } from '../components/ui/switch';
-import { API } from '../App';
+import { Badge } from '../components/ui/badge';
+import { API, useCart } from '../App';
 import { toast } from 'sonner';
 
 const CalculatorPage = () => {
     const navigate = useNavigate();
+    const { addToCart } = useCart();
     const [form, setForm] = useState({ monthly_bill: '', property_type: 'home', city: '', backup_required: false });
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [recommendedProducts, setRecommendedProducts] = useState([]);
 
     const handleCalculate = async () => {
         if (!form.monthly_bill || !form.city) { toast.error('Please fill all required fields'); return; }
         setLoading(true);
         try {
-            const response = await axios.post(`${API}/calculator`, { monthly_bill: parseFloat(form.monthly_bill), property_type: form.property_type, city: form.city, backup_required: form.backup_required });
+            const response = await axios.post(`${API}/api/calculator`, { monthly_bill: parseFloat(form.monthly_bill), property_type: form.property_type, city: form.city, backup_required: form.backup_required });
             setResult(response.data);
-        } catch (error) { toast.error('Calculation failed'); }
+
+            // Fetch recommended products based on calculated size
+            const sizeKw = response.data.recommended_size_kw;
+            try {
+                const productsRes = await axios.get(`${API}/api/products`);
+                // Find products within ±3 kW of recommended size, sorted by closest match
+                const products = productsRes.data
+                    .filter(p => p.system_size_kw >= sizeKw - 3 && p.system_size_kw <= sizeKw + 5)
+                    .filter(p => form.property_type === 'commercial' ? p.category === 'commercial' : true)
+                    .sort((a, b) => Math.abs(a.system_size_kw - sizeKw) - Math.abs(b.system_size_kw - sizeKw))
+                    .slice(0, 4);
+                setRecommendedProducts(products);
+            } catch (err) {
+                console.log('Could not fetch product recommendations');
+            }
+        } catch (error) {
+            toast.error('Calculation failed');
+            // Demo result
+            setResult({
+                recommended_size_kw: Math.ceil(parseFloat(form.monthly_bill) / 1000),
+                estimated_cost: Math.ceil(parseFloat(form.monthly_bill) / 1000) * 60000,
+                annual_savings: parseFloat(form.monthly_bill) * 10,
+                payback_years: 4.5,
+                co2_reduction_kg: Math.ceil(parseFloat(form.monthly_bill) / 1000) * 1200
+            });
+        }
         finally { setLoading(false); }
+    };
+
+    const handleAddToCart = (product) => {
+        addToCart({ ...product, quantity: 1 });
+        toast.success(`${product.name} added to cart!`);
     };
 
     return (
@@ -82,7 +115,7 @@ const CalculatorPage = () => {
                                     <div className="p-3 bg-card rounded-lg"><p className="text-sm text-muted-foreground">Payback</p><p className="font-semibold">{result.payback_years} years</p></div>
                                     <div className="p-3 bg-card rounded-lg"><p className="text-sm text-muted-foreground">CO₂ Reduction</p><p className="font-semibold">{result.co2_reduction_kg} kg/yr</p></div>
                                 </div>
-                                <Button onClick={() => navigate(`/shop?size=${result.recommended_size_kw}`)} className="w-full" variant="outline">View Recommended Products<ChevronRight className="w-4 h-4 ml-2" /></Button>
+                                <Button onClick={() => navigate(`/shop?size=${result.recommended_size_kw}`)} className="w-full" variant="outline">View All Recommended Products<ChevronRight className="w-4 h-4 ml-2" /></Button>
                             </motion.div>
                         ) : (
                             <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground py-16">
@@ -92,6 +125,53 @@ const CalculatorPage = () => {
                         )}
                     </motion.div>
                 </div>
+
+                {/* Recommended Products Section */}
+                {recommendedProducts.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-12 max-w-6xl mx-auto"
+                    >
+                        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                            <Sun className="w-6 h-6 text-primary" />
+                            Recommended Products for Your {result?.recommended_size_kw}kW System
+                        </h2>
+                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {recommendedProducts.map((product, i) => (
+                                <motion.div
+                                    key={product.id}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: i * 0.1 }}
+                                    className="bg-card rounded-xl border overflow-hidden hover:shadow-lg transition-shadow"
+                                >
+                                    <img src={product.image_url} alt={product.name} className="w-full h-40 object-cover" />
+                                    <div className="p-4">
+                                        <Badge className="mb-2">{product.system_size_kw} kW</Badge>
+                                        <h3 className="font-semibold line-clamp-1">{product.name}</h3>
+                                        <p className="text-sm text-muted-foreground mb-2">{product.brand}</p>
+                                        <div className="flex items-center gap-1 text-sm mb-3">
+                                            <Star className="w-4 h-4 fill-primary text-primary" />
+                                            <span>{product.rating || 4.5}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xl font-bold">₹{product.price?.toLocaleString()}</span>
+                                            <Button size="sm" onClick={() => handleAddToCart(product)}>
+                                                <ShoppingCart className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </div>
+                        <div className="text-center mt-6">
+                            <Link to={`/shop?size=${result?.recommended_size_kw}`}>
+                                <Button variant="outline">View All Matching Products <ChevronRight className="w-4 h-4 ml-1" /></Button>
+                            </Link>
+                        </div>
+                    </motion.div>
+                )}
 
                 <div className="mt-16 grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
                     {[{ icon: Zap, title: 'Reduce Bills', desc: 'Cut electricity costs by up to 90%' }, { icon: Leaf, title: 'Go Green', desc: 'Reduce your carbon footprint' }, { icon: TrendingUp, title: 'Great ROI', desc: 'Average payback in 3-5 years' }].map((item, i) => (

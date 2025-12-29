@@ -108,9 +108,15 @@ const AdminOrders = () => {
     const filteredOrders = statusFilter === 'all' ? orders : orders.filter(o => o.status === statusFilter);
     const pendingCount = orders.filter(o => o.status === 'pending').length;
 
+    // Helper to get short order ID (6 chars)
+    const getShortId = (id) => id?.substring(0, 6).toUpperCase() || id;
+
+    // Check if vendor can be edited (not shipped, delivered, or completed)
+    const canEditVendor = (status) => !['shipped', 'delivered', 'completed'].includes(status);
+
     const columns = [
-        { key: 'id', label: 'Order ID', render: (v) => <span className="font-mono font-medium">{v}</span> },
-        { key: 'total_amount', label: 'Total', render: (v) => <span className="font-semibold">${v.toLocaleString()}</span> },
+        { key: 'id', label: 'Order ID', render: (v) => <span className="font-mono font-medium text-primary">#{getShortId(v)}</span> },
+        { key: 'total_amount', label: 'Total', render: (v) => <span className="font-semibold">₹{v?.toLocaleString()}</span> },
         {
             key: 'status',
             label: 'Status',
@@ -121,11 +127,27 @@ const AdminOrders = () => {
         },
         {
             key: 'assigned_vendor_name',
-            label: 'Assigned To',
+            label: 'Vendor',
             render: (v, row) => v ? (
-                <span className="text-sm">{v}</span>
+                <div className="flex items-center gap-2">
+                    <Badge className="bg-green-100 text-green-700">
+                        <UserCheck className="w-3 h-3 mr-1" />
+                        {v}
+                    </Badge>
+                    {canEditVendor(row.status) && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); handleAssignClick(row); }}
+                            className="text-xs text-blue-600 hover:underline"
+                        >
+                            Edit
+                        </button>
+                    )}
+                </div>
             ) : (
-                <Badge variant="outline" className="text-yellow-600 border-yellow-300">Needs Assignment</Badge>
+                <Badge variant="outline" className="text-yellow-600 border-yellow-300">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    Needs Assignment
+                </Badge>
             )
         },
         { key: 'created_at', label: 'Date', render: (v) => new Date(v).toLocaleDateString() }
@@ -133,7 +155,13 @@ const AdminOrders = () => {
 
     const tableActions = [
         { label: 'View Details', icon: Eye, onClick: (row) => setSelectedOrder(row) },
-        { label: 'Assign Vendor', icon: Users, onClick: (row) => handleAssignClick(row) }
+        {
+            label: (row) => row.assigned_vendor_id ? 'Reassign Vendor' : 'Assign Vendor',
+            icon: Users,
+            onClick: (row) => handleAssignClick(row),
+            disabled: (row) => !canEditVendor(row.status),
+            hidden: (row) => !canEditVendor(row.status) && row.assigned_vendor_id
+        }
     ];
 
     return (
@@ -342,9 +370,23 @@ const AdminOrders = () => {
                                         <p className="font-medium">{selectedOrder.shipping_address}</p>
                                     </div>
                                     {selectedOrder.assigned_vendor_name && (
-                                        <div>
-                                            <p className="text-sm text-muted-foreground">Assigned Vendor</p>
-                                            <p className="font-medium">{selectedOrder.assigned_vendor_name}</p>
+                                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-sm text-green-700 font-medium">✓ Vendor Assigned</p>
+                                                    <p className="font-semibold text-lg">{selectedOrder.assigned_vendor_name}</p>
+                                                </div>
+                                                {canEditVendor(selectedOrder.status) && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => handleAssignClick(selectedOrder)}
+                                                        className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                                                    >
+                                                        <Users className="w-4 h-4 mr-1" /> Reassign
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                     <div>

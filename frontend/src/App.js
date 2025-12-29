@@ -28,6 +28,8 @@ import AdminVendors from './pages/AdminVendors';
 import AdminProducts from './pages/AdminProducts';
 import AdminOrders from './pages/AdminOrders';
 import AdminSettings from './pages/AdminSettings';
+import AdminTickets from './pages/AdminTickets';
+import AdminBlogs from './pages/AdminBlogs';
 
 // Components
 import Header from './components/Header';
@@ -36,8 +38,8 @@ import AIAssistant from './components/AIAssistant';
 
 import './App.css';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-export const API = `${BACKEND_URL}/api`;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+export const API = BACKEND_URL;
 
 // Auth Context
 const AuthContext = createContext(null);
@@ -69,7 +71,7 @@ const AuthProvider = ({ children }) => {
     const fetchUser = async () => {
       if (token) {
         try {
-          const response = await axios.get(`${API}/auth/me`, {
+          const response = await axios.get(`${API}/api/auth/me`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           setUser(response.data);
@@ -84,7 +86,7 @@ const AuthProvider = ({ children }) => {
   }, [token]);
 
   const login = async (email, password) => {
-    const response = await axios.post(`${API}/auth/login`, { email, password });
+    const response = await axios.post(`${API}/api/auth/login`, { email, password });
     const { access_token, user: userData } = response.data;
     localStorage.setItem('token', access_token);
     setToken(access_token);
@@ -93,7 +95,7 @@ const AuthProvider = ({ children }) => {
   };
 
   const register = async (name, email, password) => {
-    const response = await axios.post(`${API}/auth/register`, { name, email, password });
+    const response = await axios.post(`${API}/api/auth/register`, { name, email, password });
     const { access_token, user: userData } = response.data;
     localStorage.setItem('token', access_token);
     setToken(access_token);
@@ -296,7 +298,7 @@ function App() {
   useEffect(() => {
     const seedDatabase = async () => {
       try {
-        await axios.post(`${API}/seed`);
+        await axios.post(`${API}/api/seed`);
       } catch (error) {
         // Already seeded or error - ignore
       }
@@ -383,6 +385,16 @@ function App() {
                 <Route path="/admin/settings" element={
                   <ProtectedRoute allowedRoles={['admin']}>
                     <AdminSettings />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/tickets" element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminTickets />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/blogs" element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminBlogs />
                   </ProtectedRoute>
                 } />
               </Routes>

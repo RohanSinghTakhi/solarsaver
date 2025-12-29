@@ -9,32 +9,68 @@ import DashboardLayout from '../components/dashboard/DashboardLayout';
 import StatsCard from '../components/dashboard/StatsCard';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { useAuth } from '../App';
+import { useAuth, API } from '../App';
+import axios from 'axios';
 
 const AdminDashboard = () => {
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const [stats, setStats] = useState({
-        totalRevenue: 125450,
-        totalUsers: 1250,
-        totalVendors: 45,
-        totalProducts: 320,
-        totalOrders: 890,
-        pendingVendors: 5
+        totalRevenue: 0,
+        totalUsers: 0,
+        totalVendors: 0,
+        totalProducts: 0,
+        totalOrders: 0,
+        pendingOrders: 0
     });
 
-    const [recentActivities, setRecentActivities] = useState([
-        { type: 'new_order', message: 'New order #ORD-890 received', time: '5 min ago', icon: ShoppingCart },
-        { type: 'new_vendor', message: 'New vendor application from "Green Solar Co"', time: '15 min ago', icon: Store },
-        { type: 'new_user', message: 'New user registration: john@example.com', time: '1 hour ago', icon: Users },
-        { type: 'product', message: 'Product "Solar Panel 500W" added by SunPower', time: '2 hours ago', icon: Package },
-        { type: 'order_complete', message: 'Order #ORD-885 marked as completed', time: '3 hours ago', icon: CheckCircle },
-    ]);
+    const [recentOrders, setRecentOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    const [pendingVendors, setPendingVendors] = useState([
-        { id: 1, name: 'Green Solar Co', email: 'info@greensolar.com', date: '2024-12-27' },
-        { id: 2, name: 'EcoEnergy Solutions', email: 'contact@ecoenergy.com', date: '2024-12-26' },
-        { id: 3, name: 'SolarTech Plus', email: 'hello@solartech.com', date: '2024-12-25' },
-    ]);
+    useEffect(() => {
+        fetchDashboardData();
+    }, [token]);
+
+    const fetchDashboardData = async () => {
+        try {
+            // Fetch orders, products, and calculate stats
+            const [ordersRes, productsRes, usersRes] = await Promise.all([
+                axios.get(`${API}/api/orders`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: [] })),
+                axios.get(`${API}/api/products`).catch(() => ({ data: [] })),
+                axios.get(`${API}/api/admin/users`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: [] }))
+            ]);
+
+            const orders = ordersRes.data || [];
+            const products = productsRes.data || [];
+            const users = usersRes.data || [];
+
+            const totalRevenue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+            const vendors = users.filter(u => u.role === 'vendor');
+            const pendingOrders = orders.filter(o => o.status === 'pending').length;
+
+            setStats({
+                totalRevenue,
+                totalUsers: users.filter(u => u.role === 'customer').length,
+                totalVendors: vendors.length,
+                totalProducts: products.length,
+                totalOrders: orders.length,
+                pendingOrders
+            });
+
+            // Recent orders for activity feed
+            setRecentOrders(orders.slice(0, 5));
+        } catch (error) {
+            console.log('Using demo data');
+            setStats({
+                totalRevenue: 125450,
+                totalUsers: 1250,
+                totalVendors: 45,
+                totalProducts: 320,
+                totalOrders: 890,
+                pendingOrders: 5
+            });
+        }
+        setLoading(false);
+    };
 
     const [topVendors, setTopVendors] = useState([
         { name: 'SunPower Solar', orders: 156, revenue: 45250 },
@@ -95,9 +131,9 @@ const AdminDashboard = () => {
                         color="primary"
                     />
                     <StatsCard
-                        title="Pending Approval"
-                        value={stats.pendingVendors}
-                        change="Vendors awaiting"
+                        title="Pending Orders"
+                        value={stats.pendingOrders}
+                        change="Need assignment"
                         changeType="decrease"
                         icon={AlertCircle}
                         color="red"
@@ -106,7 +142,7 @@ const AdminDashboard = () => {
 
                 {/* Main Grid */}
                 <div className="grid lg:grid-cols-3 gap-6">
-                    {/* Recent Activities */}
+                    {/* Recent Orders */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -114,22 +150,37 @@ const AdminDashboard = () => {
                     >
                         <div className="p-4 md:p-6 border-b flex items-center justify-between">
                             <h2 className="font-semibold text-lg flex items-center gap-2">
-                                <Activity className="w-5 h-5 text-primary" />
-                                Recent Activity
+                                <ShoppingCart className="w-5 h-5 text-primary" />
+                                Recent Orders
                             </h2>
+                            <Link to="/admin/orders">
+                                <Button variant="ghost" size="sm">View All</Button>
+                            </Link>
                         </div>
                         <div className="p-4 space-y-3">
-                            {recentActivities.map((activity, index) => (
-                                <div key={index} className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/30 transition-colors">
-                                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <activity.icon className="w-5 h-5 text-primary" />
+                            {recentOrders.length === 0 ? (
+                                <p className="text-muted-foreground text-center py-4">No orders yet</p>
+                            ) : (
+                                recentOrders.map((order, index) => (
+                                    <div key={index} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/30 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                                                <ShoppingCart className="w-5 h-5 text-primary" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium">Order #{order.id?.substring(0, 6).toUpperCase()}</p>
+                                                <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleString()}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-semibold">₹{order.total_amount?.toLocaleString()}</p>
+                                            <Badge className={order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}>
+                                                {order.status}
+                                            </Badge>
+                                        </div>
                                     </div>
-                                    <div className="flex-1">
-                                        <p className="text-sm">{activity.message}</p>
-                                        <p className="text-xs text-muted-foreground mt-1">{activity.time}</p>
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </motion.div>
 

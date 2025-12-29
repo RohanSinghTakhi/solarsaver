@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import axios from 'axios';
 import {
     Filter, Grid3X3, List, SlidersHorizontal, X, Search,
-    Sun, Building2, ChevronDown, Star
+    Sun, Building2, ChevronDown, Star, Zap
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -64,7 +64,7 @@ const ShopPage = () => {
             if (filters.brands.length > 0) params.append('brand', filters.brands[0]);
             if (filters.inStock) params.append('in_stock', 'true');
 
-            const response = await axios.get(`${API}/products?${params.toString()}`);
+            const response = await axios.get(`${API}/api/products?${params.toString()}`);
             let data = response.data;
 
             // Client-side sorting
@@ -100,8 +100,8 @@ const ShopPage = () => {
 
     const fetchBrands = async () => {
         try {
-            const response = await axios.get(`${API}/brands`);
-            setBrands(response.data);
+            const response = await axios.get(`${API}/api/products`).then(res => [...new Set(res.data.map(p => p.brand))]);
+            setBrands(response);
         } catch (error) {
             console.error('Failed to fetch brands:', error);
         }
@@ -140,8 +140,52 @@ const ShopPage = () => {
         filters.inStock
     ].filter(Boolean).length;
 
+    // Quick calculator state
+    const [quickBill, setQuickBill] = useState('');
+    const [calculatedSize, setCalculatedSize] = useState(null);
+
+    const handleQuickCalculate = () => {
+        if (!quickBill || parseFloat(quickBill) <= 0) return;
+        // Simple calculation: 1kW per ₹1000 monthly bill (approx)
+        const size = Math.ceil(parseFloat(quickBill) / 1000);
+        setCalculatedSize(size);
+        // Auto-filter by size range (size-2 to size+3)
+        setFilters(prev => ({
+            ...prev,
+            minSize: Math.max(0, size - 2),
+            maxSize: Math.min(100, size + 5)
+        }));
+    };
+
     const FilterSidebar = () => (
         <div className="space-y-6">
+            {/* Quick Calculator */}
+            <div className="p-4 bg-gradient-to-br from-primary/10 to-accent/10 rounded-xl border border-primary/20">
+                <Label className="text-sm font-semibold flex items-center gap-2 mb-3">
+                    <Zap className="w-4 h-4 text-primary" />
+                    Quick Size Calculator
+                </Label>
+                <div className="space-y-3">
+                    <Input
+                        type="number"
+                        placeholder="Monthly bill (₹)"
+                        value={quickBill}
+                        onChange={e => setQuickBill(e.target.value)}
+                        className="text-sm"
+                    />
+                    <Button onClick={handleQuickCalculate} size="sm" className="w-full">
+                        Find My Size
+                    </Button>
+                    {calculatedSize && (
+                        <div className="text-center p-2 bg-card rounded-lg">
+                            <p className="text-xs text-muted-foreground">Recommended</p>
+                            <p className="text-xl font-bold text-primary">{calculatedSize} kW</p>
+                            <p className="text-xs text-muted-foreground">Showing matching products</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
             {/* Category */}
             <div className="space-y-3">
                 <Label className="text-sm font-semibold">Category</Label>
@@ -172,6 +216,7 @@ const ShopPage = () => {
                     </button>
                 </div>
             </div>
+
 
             {/* System Size */}
             <div className="space-y-3">

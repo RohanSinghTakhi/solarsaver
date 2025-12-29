@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import {
     LayoutDashboard, Package, ShoppingCart, User, Settings,
     LogOut, ChevronLeft, ChevronRight, Sun, Users, Store,
-    BarChart3, FileText, CreditCard
+    BarChart3, FileText, CreditCard, Ticket
 } from 'lucide-react';
 import { useAuth } from '../../App';
 import { Button } from '../ui/button';
@@ -28,6 +28,8 @@ const DashboardLayout = ({ children, userRole = 'vendor' }) => {
         { name: 'Vendors', path: '/admin/vendors', icon: Store },
         { name: 'Products', path: '/admin/products', icon: Package },
         { name: 'Orders', path: '/admin/orders', icon: ShoppingCart },
+        { name: 'Tickets', path: '/admin/tickets', icon: Ticket },
+        { name: 'Blogs', path: '/admin/blogs', icon: FileText },
         { name: 'Settings', path: '/admin/settings', icon: Settings },
     ];
 
@@ -89,8 +91,8 @@ const DashboardLayout = ({ children, userRole = 'vendor' }) => {
                                 key={link.path}
                                 to={link.path}
                                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${isActive
-                                        ? 'bg-primary text-primary-foreground'
-                                        : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'hover:bg-muted text-muted-foreground hover:text-foreground'
                                     } ${collapsed ? 'justify-center' : ''}`}
                             >
                                 <link.icon className="w-5 h-5 flex-shrink-0" />

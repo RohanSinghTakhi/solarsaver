@@ -135,19 +135,32 @@ const DataTable = ({
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
-                                                    {actions.map((action, actionIndex) => (
-                                                        <DropdownMenuItem
-                                                            key={actionIndex}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                action.onClick(row);
-                                                            }}
-                                                            className={action.variant === 'destructive' ? 'text-destructive' : ''}
-                                                        >
-                                                            {action.icon && <action.icon className="w-4 h-4 mr-2" />}
-                                                            {action.label}
-                                                        </DropdownMenuItem>
-                                                    ))}
+                                                    {actions.map((action, actionIndex) => {
+                                                        // Handle hidden actions
+                                                        const isHidden = typeof action.hidden === 'function' ? action.hidden(row) : action.hidden;
+                                                        if (isHidden) return null;
+
+                                                        // Handle disabled actions
+                                                        const isDisabled = typeof action.disabled === 'function' ? action.disabled(row) : action.disabled;
+
+                                                        // Handle dynamic labels
+                                                        const label = typeof action.label === 'function' ? action.label(row) : action.label;
+
+                                                        return (
+                                                            <DropdownMenuItem
+                                                                key={actionIndex}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (!isDisabled) action.onClick(row);
+                                                                }}
+                                                                className={`${action.variant === 'destructive' ? 'text-destructive' : ''} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                disabled={isDisabled}
+                                                            >
+                                                                {action.icon && <action.icon className="w-4 h-4 mr-2" />}
+                                                                {label}
+                                                            </DropdownMenuItem>
+                                                        );
+                                                    })}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </td>

@@ -38,9 +38,9 @@ const ProductPage = () => {
     const fetchProduct = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(`${API}/products/${id}`);
+            const response = await axios.get(`${API}/api/products/${id}`);
             setProduct(response.data);
-            const relatedRes = await axios.get(`${API}/products?category=${response.data.category}&limit=4`);
+            const relatedRes = await axios.get(`${API}/api/products?category=${response.data.category}&limit=4`);
             setRelatedProducts(relatedRes.data.filter(p => p.id !== id));
         } catch (error) {
             toast.error('Product not found');
@@ -52,7 +52,7 @@ const ProductPage = () => {
 
     const fetchReviews = async () => {
         try {
-            const response = await axios.get(`${API}/products/${id}/reviews`);
+            const response = await axios.get(`${API}/api/products/${id}/reviews`);
             setReviews(response.data);
         } catch (error) {
             console.error('Failed to fetch reviews:', error);
@@ -71,7 +71,7 @@ const ProductPage = () => {
         if (!newReview.comment.trim()) { toast.error('Please write a review'); return; }
         setSubmittingReview(true);
         try {
-            await axios.post(`${API}/reviews`, { product_id: id, rating: newReview.rating, comment: newReview.comment },
+            await axios.post(`${API}/api/reviews`, { product_id: id, rating: newReview.rating, comment: newReview.comment },
                 { headers: { Authorization: `Bearer ${token}` } });
             toast.success('Review submitted!');
             setNewReview({ rating: 5, comment: '' });

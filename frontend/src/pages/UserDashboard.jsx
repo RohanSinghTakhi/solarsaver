@@ -17,7 +17,7 @@ const UserDashboard = () => {
 
     const fetchOrders = async () => {
         try {
-            const response = await axios.get(`${API}/orders`, { headers: { Authorization: `Bearer ${token}` } });
+            const response = await axios.get(`${API}/api/orders`, { headers: { Authorization: `Bearer ${token}` } });
             setOrders(response.data);
         } catch (error) { console.error('Failed to fetch orders:', error); }
         finally { setLoading(false); }

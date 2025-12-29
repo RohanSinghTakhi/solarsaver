@@ -24,7 +24,7 @@ const VendorRegisterPage = () => {
         if (!acceptTerms) { toast.error('Please accept the terms and conditions'); return; }
         setLoading(true);
         try {
-            await axios.post(`${API}/vendors/register`, form);
+            await axios.post(`${API}/api/vendors/register`, form);
             toast.success('Vendor registration submitted! Please wait for approval.');
             navigate('/login');
         } catch (error) {

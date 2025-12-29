@@ -42,7 +42,7 @@ const AIAssistant = () => {
         setIsLoading(true);
 
         try {
-            const response = await axios.post(`${API}/chat`, {
+            const response = await axios.post(`${API}/api/chat`, {
                 message: userMessage,
                 session_id: sessionId
             });
@@ -142,14 +142,14 @@ const AIAssistant = () => {
                                         className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
                                     >
                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${message.role === 'user'
-                                                ? 'bg-primary/10 text-primary'
-                                                : 'bg-accent/10 text-accent'
+                                            ? 'bg-primary/10 text-primary'
+                                            : 'bg-accent/10 text-accent'
                                             }`}>
                                             {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                                         </div>
                                         <div className={`max-w-[80%] p-3 rounded-2xl ${message.role === 'user'
-                                                ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                                                : 'bg-secondary rounded-tl-sm'
+                                            ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                                            : 'bg-secondary rounded-tl-sm'
                                             }`}>
                                             <p className="text-sm leading-relaxed">{message.content}</p>
                                         </div>

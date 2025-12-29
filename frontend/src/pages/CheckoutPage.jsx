@@ -25,7 +25,7 @@ const CheckoutPage = () => {
         if (!form.address || !form.city || !form.state || !form.pincode || !form.phone) { toast.error('Please fill all address fields'); return; }
         setLoading(true);
         try {
-            await axios.post(`${API}/orders`, {
+            await axios.post(`${API}/api/orders`, {
                 items: cart.map(item => ({ product_id: item.id, quantity: item.quantity })),
                 shipping_address: `${form.address}, ${form.city}, ${form.state} - ${form.pincode}`,
                 payment_method: form.payment_method

@@ -81,8 +81,8 @@ const HomePage = () => {
     const fetchProducts = async () => {
         try {
             const [homeRes, commercialRes] = await Promise.all([
-                axios.get(`${API}/products/featured?category=home&limit=4`),
-                axios.get(`${API}/products/featured?category=commercial&limit=4`)
+                axios.get(`${API}/api/products?category=home&limit=4`),
+                axios.get(`${API}/api/products?category=commercial&limit=4`)
             ]);
             setHomeProducts(homeRes.data);
             setCommercialProducts(commercialRes.data);
@@ -99,7 +99,7 @@ const HomePage = () => {
 
         setIsCalculating(true);
         try {
-            const response = await axios.post(`${API}/calculator`, {
+            const response = await axios.post(`${API}/api/calculator`, {
                 monthly_bill: parseFloat(calcForm.monthly_bill),
                 property_type: calcForm.property_type,
                 city: calcForm.city,

@@ -197,6 +197,9 @@ class OrderResponse(BaseModel):
     total_amount: float
     status: str
     shipping_address: str
+    assigned_vendor_id: Optional[str] = None
+    assigned_vendor_name: Optional[str] = None
+    assigned_at: Optional[str] = None
     created_at: str
 
 class ChatMessage(BaseModel):
@@ -218,6 +221,69 @@ class ReviewCreate(BaseModel):
     product_id: str
     rating: int
     comment: str
+
+# ============== TICKETING SYSTEM MODELS ==============
+
+class TicketCreate(BaseModel):
+    subject: str
+    message: str
+    category: str = "general"  # general, order, technical, billing
+    order_id: Optional[str] = None  # Related order ID for non-general tickets
+
+class TicketReply(BaseModel):
+    message: str
+
+class TicketResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    user_id: str
+    user_name: str
+    user_email: str
+    subject: str
+    message: str
+    category: str
+    status: str  # open, in_progress, resolved, closed
+    priority: str  # low, medium, high
+    order_id: Optional[str] = None
+    replies: List[dict] = []
+    created_at: str
+    updated_at: str
+
+# ============== BLOG MODELS ==============
+
+class BlogCreate(BaseModel):
+    title: str
+    content: str
+    excerpt: str
+    category: str  # news, tips, guides, technology
+    image_url: str
+    tags: List[str] = []
+    is_published: bool = True
+
+class BlogUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    excerpt: Optional[str] = None
+    category: Optional[str] = None
+    image_url: Optional[str] = None
+    tags: Optional[List[str]] = None
+    is_published: Optional[bool] = None
+
+class BlogResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    title: str
+    content: str
+    excerpt: str
+    category: str
+    image_url: str
+    tags: List[str]
+    author_id: str
+    author_name: str
+    is_published: bool
+    views: int = 0
+    created_at: str
+    updated_at: str
 
 # ============== AUTH HELPERS ==============
 
@@ -491,54 +557,149 @@ async def get_vendor_products(current_user: dict = Depends(get_vendor_user)):
 
 # ============== SOLAR CALCULATOR ==============
 
+# OpenWeatherMap API key
+OPENWEATHERMAP_API_KEY = "2096dd7fb74f7d1b1a5096a61abad00f"
+
+# India city data: Average peak sun hours and electricity tariffs (₹/kWh)
+INDIA_SOLAR_DATA = {
+    # City: (peak_sun_hours, electricity_tariff)
+    "delhi": (5.5, 8.0),
+    "mumbai": (5.0, 9.5),
+    "bangalore": (5.2, 7.5),
+    "bengaluru": (5.2, 7.5),
+    "chennai": (5.8, 6.5),
+    "kolkata": (4.8, 8.0),
+    "hyderabad": (5.5, 8.5),
+    "pune": (5.3, 9.0),
+    "ahmedabad": (5.8, 5.5),
+    "jaipur": (6.0, 7.0),
+    "lucknow": (5.2, 7.0),
+    "chandigarh": (5.5, 6.5),
+    "noida": (5.5, 8.0),
+    "gurgaon": (5.5, 8.0),
+    "gurugram": (5.5, 8.0),
+    # Default values for other cities
+    "default": (5.0, 7.5)
+}
+
+# Cost per watt installed in India (₹/Watt)
+COST_PER_WATT_HOME = 45  # ₹45-55/Watt for residential
+COST_PER_WATT_COMMERCIAL = 40  # ₹40-50/Watt for commercial
+
+# Panel specifications
+PANEL_WATTAGE = 400  # Watts per panel (standard mono)
+PANEL_EFFICIENCY = 0.20  # 20% efficiency
+
+# System losses factor
+SYSTEM_LOSSES = 0.80  # 20% losses (inverter, DC cables, dust, temp)
+
+async def get_weather_factor(city: str) -> float:
+    """Get cloud-based solar factor from OpenWeatherMap (1.0 = clear, 0.5 = very cloudy)"""
+    try:
+        import httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"https://api.openweathermap.org/data/2.5/weather",
+                params={"q": f"{city},IN", "appid": OPENWEATHERMAP_API_KEY, "units": "metric"}
+            )
+            if response.status_code == 200:
+                data = response.json()
+                clouds = data.get("clouds", {}).get("all", 0)  # 0-100%
+                # Convert cloud % to solar factor (100% clouds = 0.5 factor)
+                solar_factor = 1 - (clouds / 200)
+                return max(0.5, min(1.0, solar_factor))
+    except Exception:
+        pass
+    return 0.85  # Default factor
+
 @api_router.post("/calculator/calculate", response_model=SolarCalculatorResult)
 async def calculate_solar(input_data: SolarCalculatorInput):
-    # Average electricity rate ($/kWh)
-    electricity_rate = 0.12
+    """
+    Scientific Solar Calculator based on Tata Power methodology
     
-    # Calculate monthly consumption (kWh)
-    monthly_consumption = input_data.monthly_bill / electricity_rate
+    Formula Flow:
+    1. Monthly Bill → Daily Consumption (kWh) = Bill / Tariff / 30
+    2. Peak Sun Hours → From city data table
+    3. Required System Size (kW) = Daily Consumption / (Peak Sun Hours × System Efficiency)
+    4. Add 25% buffer for backup if required
+    5. Panel Count = System Size × 1000 / Panel Wattage
+    6. Installation Cost = System Size × 1000 × Cost per Watt
+    7. Annual Savings = System Size × 365 × Peak Sun Hours × Tariff × 0.95
+    8. Payback Years = Cost / Annual Savings
+    9. CO2 Reduction = Annual Production × 0.82 kg/kWh (India grid factor)
+    """
     
-    # Annual consumption
-    annual_consumption = monthly_consumption * 12
+    # Get city-specific data or defaults
+    city_key = input_data.city.lower().strip()
+    peak_sun_hours, electricity_tariff = INDIA_SOLAR_DATA.get(
+        city_key, 
+        INDIA_SOLAR_DATA["default"]
+    )
     
-    # Peak sun hours based on property type and typical location
-    peak_sun_hours = 5 if input_data.property_type == "home" else 5.5
+    # Get real-time weather adjustment factor
+    weather_factor = await get_weather_factor(input_data.city)
     
-    # System efficiency factor
-    efficiency = 0.80
+    # Step 1: Calculate daily energy consumption (kWh/day)
+    # Monthly Bill / Tariff = Monthly kWh, / 30 = Daily kWh
+    daily_consumption_kwh = input_data.monthly_bill / electricity_tariff / 30
     
-    # Calculate required system size (kW)
-    daily_production_needed = annual_consumption / 365
-    recommended_size = daily_production_needed / (peak_sun_hours * efficiency)
+    # Step 2: Calculate required system size (kW)
+    # System must produce daily_consumption in peak_sun_hours
+    # Adjusted for system losses (inverter, cables, dust, temperature)
+    effective_sun_hours = peak_sun_hours * SYSTEM_LOSSES * weather_factor
+    required_system_kw = daily_consumption_kwh / effective_sun_hours
     
-    # Add buffer for backup if required
+    # Step 3: Add buffer for battery backup
     if input_data.backup_required:
-        recommended_size *= 1.25
+        required_system_kw *= 1.25  # 25% extra for battery and backup
     
     # Round to nearest 0.5 kW
-    recommended_size = round(recommended_size * 2) / 2
+    recommended_size_kw = round(required_system_kw * 2) / 2
+    recommended_size_kw = max(1.0, recommended_size_kw)  # Minimum 1kW
     
-    # Cost estimation ($1.50 - $2.50 per watt installed)
-    cost_per_watt = 2.0 if input_data.property_type == "home" else 1.80
-    estimated_cost = recommended_size * 1000 * cost_per_watt
+    # Step 4: Calculate number of panels
+    num_panels = int(round(recommended_size_kw * 1000 / PANEL_WATTAGE))
     
-    # Annual savings (assuming 100% offset)
-    annual_savings = annual_consumption * electricity_rate * 0.95
+    # Step 5: Calculate installation cost
+    cost_per_watt = COST_PER_WATT_HOME if input_data.property_type == "home" else COST_PER_WATT_COMMERCIAL
+    estimated_cost = recommended_size_kw * 1000 * cost_per_watt
     
-    # Payback period
-    payback_years = estimated_cost / annual_savings if annual_savings > 0 else 0
+    # Apply government subsidy (PM Surya Ghar) for residential
+    subsidy = 0
+    if input_data.property_type == "home":
+        if recommended_size_kw <= 2:
+            subsidy = 30000  # ₹30,000 for up to 2kW
+        elif recommended_size_kw <= 3:
+            subsidy = 60000  # ₹60,000 for up to 3kW
+        else:
+            subsidy = 78000  # ₹78,000 for above 3kW (up to 10kW)
     
-    # CO2 reduction (0.4 kg CO2 per kWh)
-    co2_reduction = annual_consumption * 0.4
+    net_cost = estimated_cost - subsidy
+    
+    # Step 6: Calculate annual generation and savings
+    # System produces: size (kW) × peak_sun_hours × 365 × system_efficiency
+    annual_generation_kwh = recommended_size_kw * peak_sun_hours * 365 * SYSTEM_LOSSES
+    annual_savings = annual_generation_kwh * electricity_tariff * 0.95  # 95% utilization
+    
+    # Step 7: Payback period
+    payback_years = net_cost / annual_savings if annual_savings > 0 else 10
+    
+    # Step 8: CO2 reduction (India grid emission factor: 0.82 kg CO2/kWh)
+    co2_reduction_kg = annual_generation_kwh * 0.82
     
     return SolarCalculatorResult(
-        recommended_size_kw=recommended_size,
-        estimated_cost=round(estimated_cost, 2),
+        recommended_size_kw=recommended_size_kw,
+        estimated_cost=round(net_cost, 2),
         annual_savings=round(annual_savings, 2),
         payback_years=round(payback_years, 1),
-        co2_reduction_kg=round(co2_reduction, 1)
+        co2_reduction_kg=round(co2_reduction_kg, 1)
     )
+
+# Alias for frontend compatibility
+@api_router.post("/calculator", response_model=SolarCalculatorResult)
+async def calculate_solar_alias(input_data: SolarCalculatorInput):
+    """Alias endpoint for /calculator/calculate"""
+    return await calculate_solar(input_data)
 
 # ============== ORDERS ==============
 
@@ -593,10 +754,18 @@ async def get_vendor_orders(current_user: dict = Depends(get_vendor_user)):
     return [OrderResponse(**o) for o in orders]
 
 @api_router.put("/orders/{order_id}/status")
-async def update_order_status(order_id: str, status: str, current_user: dict = Depends(get_vendor_user)):
-    valid_statuses = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"]
+async def update_order_status(order_id: str, status_data: dict, current_user: dict = Depends(get_current_user)):
+    """Update order status - vendors can only update their assigned orders"""
+    status = status_data.get("status")
+    valid_statuses = ["pending", "assigned", "processing", "shipped", "delivered", "completed", "cancelled"]
     if status not in valid_statuses:
-        raise HTTPException(status_code=400, detail="Invalid status")
+        raise HTTPException(status_code=400, detail=f"Invalid status. Valid: {valid_statuses}")
+    
+    # Check if vendor can update this order
+    if current_user["role"] == "vendor":
+        order = await db.orders.find_one({"id": order_id, "assigned_vendor_id": current_user["id"]})
+        if not order:
+            raise HTTPException(status_code=403, detail="You can only update orders assigned to you")
     
     result = await db.orders.update_one({"id": order_id}, {"$set": {"status": status}})
     if result.modified_count == 0:
@@ -1329,7 +1498,224 @@ async def get_vendor_assigned_orders(current_user: dict = Depends(get_vendor_use
     ).sort("created_at", -1).to_list(100)
     return orders
 
+# ============== CONTACT & TICKETING ==============
+
+@api_router.post("/contact")
+async def submit_contact_form(form: ContactForm):
+    """Submit a contact form message"""
+    contact_id = str(uuid.uuid4())
+    contact_doc = {
+        "id": contact_id,
+        **form.model_dump(),
+        "status": "new",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.contacts.insert_one(contact_doc)
+    return {"message": "Thank you for contacting us! We'll respond shortly.", "id": contact_id}
+
+@api_router.get("/admin/contacts")
+async def get_contact_submissions(current_user: dict = Depends(get_admin_user)):
+    """Get all contact form submissions (admin)"""
+    contacts = await db.contacts.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return contacts
+
+@api_router.post("/tickets", response_model=TicketResponse)
+async def create_ticket(ticket: TicketCreate, current_user: dict = Depends(get_current_user)):
+    """Create a new support ticket"""
+    ticket_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    ticket_doc = {
+        "id": ticket_id,
+        "user_id": current_user["id"],
+        "user_name": current_user["name"],
+        "user_email": current_user["email"],
+        **ticket.model_dump(),
+        "status": "open",
+        "priority": "medium",
+        "replies": [],
+        "created_at": now,
+        "updated_at": now
+    }
+    await db.tickets.insert_one(ticket_doc)
+    return TicketResponse(**{k: v for k, v in ticket_doc.items() if k != "_id"})
+
+@api_router.get("/tickets", response_model=List[TicketResponse])
+async def get_user_tickets(current_user: dict = Depends(get_current_user)):
+    """Get current user's tickets"""
+    tickets = await db.tickets.find(
+        {"user_id": current_user["id"]},
+        {"_id": 0}
+    ).sort("updated_at", -1).to_list(100)
+    return [TicketResponse(**t) for t in tickets]
+
+@api_router.get("/tickets/{ticket_id}", response_model=TicketResponse)
+async def get_ticket(ticket_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a specific ticket"""
+    ticket = await db.tickets.find_one({"id": ticket_id}, {"_id": 0})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    # Users can only see their own tickets, admins can see all
+    if ticket["user_id"] != current_user["id"] and current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    return TicketResponse(**ticket)
+
+@api_router.post("/tickets/{ticket_id}/reply")
+async def reply_to_ticket(
+    ticket_id: str,
+    reply: TicketReply,
+    current_user: dict = Depends(get_current_user)
+):
+    """Add a reply to a ticket"""
+    ticket = await db.tickets.find_one({"id": ticket_id})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    # Users can only reply to their own tickets, admins can reply to all
+    if ticket["user_id"] != current_user["id"] and current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    reply_doc = {
+        "id": str(uuid.uuid4()),
+        "user_id": current_user["id"],
+        "user_name": current_user["name"],
+        "is_admin": current_user["role"] == "admin",
+        "message": reply.message,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.tickets.update_one(
+        {"id": ticket_id},
+        {
+            "$push": {"replies": reply_doc},
+            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+        }
+    )
+    return {"message": "Reply added successfully", "reply": reply_doc}
+
+@api_router.get("/admin/tickets", response_model=List[TicketResponse])
+async def get_all_tickets(
+    status: Optional[str] = None,
+    current_user: dict = Depends(get_admin_user)
+):
+    """Get all tickets (admin only)"""
+    query = {}
+    if status:
+        query["status"] = status
+    tickets = await db.tickets.find(query, {"_id": 0}).sort("updated_at", -1).to_list(100)
+    return [TicketResponse(**t) for t in tickets]
+
+@api_router.put("/admin/tickets/{ticket_id}/status")
+async def update_ticket_status(
+    ticket_id: str,
+    status: str,
+    current_user: dict = Depends(get_admin_user)
+):
+    """Update ticket status (admin only)"""
+    if status not in ["open", "in_progress", "resolved", "closed"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    result = await db.tickets.update_one(
+        {"id": ticket_id},
+        {"$set": {"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    return {"message": f"Ticket status updated to {status}"}
+
+@api_router.put("/admin/tickets/{ticket_id}/priority")
+async def update_ticket_priority(
+    ticket_id: str,
+    priority: str,
+    current_user: dict = Depends(get_admin_user)
+):
+    """Update ticket priority (admin only)"""
+    if priority not in ["low", "medium", "high"]:
+        raise HTTPException(status_code=400, detail="Invalid priority")
+    
+    result = await db.tickets.update_one(
+        {"id": ticket_id},
+        {"$set": {"priority": priority, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    return {"message": f"Ticket priority updated to {priority}"}
+
+# ============== BLOG ENDPOINTS ==============
+
+@api_router.get("/blogs", response_model=List[BlogResponse])
+async def get_blogs(category: Optional[str] = None, published_only: bool = True):
+    """Get all blogs, optionally filtered by category"""
+    query = {}
+    if published_only:
+        query["is_published"] = True
+    if category:
+        query["category"] = category
+    blogs = await db.blogs.find(query, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return [BlogResponse(**b) for b in blogs]
+
+@api_router.get("/blogs/{blog_id}", response_model=BlogResponse)
+async def get_blog(blog_id: str):
+    """Get a single blog by ID and increment views"""
+    blog = await db.blogs.find_one_and_update(
+        {"id": blog_id},
+        {"$inc": {"views": 1}},
+        {"_id": 0}
+    )
+    if not blog:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    return BlogResponse(**blog)
+
+@api_router.post("/admin/blogs", response_model=BlogResponse)
+async def create_blog(blog: BlogCreate, current_user: dict = Depends(get_admin_user)):
+    """Create a new blog post (admin only)"""
+    now = datetime.now(timezone.utc).isoformat()
+    blog_doc = {
+        "id": str(uuid.uuid4()),
+        "title": blog.title,
+        "content": blog.content,
+        "excerpt": blog.excerpt,
+        "category": blog.category,
+        "image_url": blog.image_url,
+        "tags": blog.tags,
+        "author_id": current_user["id"],
+        "author_name": current_user["name"],
+        "is_published": blog.is_published,
+        "views": 0,
+        "created_at": now,
+        "updated_at": now
+    }
+    await db.blogs.insert_one(blog_doc)
+    return BlogResponse(**{k: v for k, v in blog_doc.items() if k != "_id"})
+
+@api_router.put("/admin/blogs/{blog_id}", response_model=BlogResponse)
+async def update_blog(blog_id: str, blog: BlogUpdate, current_user: dict = Depends(get_admin_user)):
+    """Update a blog post (admin only)"""
+    update_data = {k: v for k, v in blog.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.blogs.update_one({"id": blog_id}, {"$set": update_data})
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    
+    updated = await db.blogs.find_one({"id": blog_id}, {"_id": 0})
+    return BlogResponse(**updated)
+
+@api_router.delete("/admin/blogs/{blog_id}")
+async def delete_blog(blog_id: str, current_user: dict = Depends(get_admin_user)):
+    """Delete a blog post (admin only)"""
+    result = await db.blogs.delete_one({"id": blog_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    return {"message": "Blog deleted successfully"}
+
+@api_router.get("/admin/blogs", response_model=List[BlogResponse])
+async def get_all_blogs_admin(current_user: dict = Depends(get_admin_user)):
+    """Get all blogs including unpublished (admin only)"""
+    blogs = await db.blogs.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return [BlogResponse(**b) for b in blogs]
+
 # ============== ROOT ==============
+
 
 @api_router.get("/")
 async def root():
